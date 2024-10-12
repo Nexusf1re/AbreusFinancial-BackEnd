@@ -6,7 +6,7 @@ const PORT = 3000;
 app.use(cors());
 
 app.get('/', (request, response) => {
-    response.send("Get recebido, parabens Gabribri")
+    response.send("Hello World")
 });
 
 app.listen(PORT, () => {

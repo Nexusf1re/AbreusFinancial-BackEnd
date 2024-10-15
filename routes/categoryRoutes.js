@@ -3,7 +3,7 @@ const pool = require('../config/db');
 
 const router = express.Router();
 
-
+//Rota para listar as categorias
 router.get("/list", (req, res) => {
 
     const userId = req.query.userId;
@@ -24,6 +24,8 @@ router.get("/list", (req, res) => {
 
 });
 
+
+//Rota para cadastrar as categorias
 router.post("/register", (req, res) => {
     const { userId, category, type } = req.body;
 
@@ -43,6 +45,7 @@ router.post("/register", (req, res) => {
 });
 
 
+//Rota para excluir as categorias
 router.delete("/delete/:id", (req, res) => {
     const { id } = req.params;
     const query = 'DELETE FROM category WHERE id = ?';

@@ -5,7 +5,7 @@ const localTimestamp = require('../config/timestamp');
 const router = express.Router();
 
 
-
+//Rota para Listar  as movimentações
 router.get("/financial", (req, res) => {
 
   const usuario = req.query.usuario;  // Obtém o userId da query string
@@ -22,11 +22,11 @@ router.get("/financial", (req, res) => {
         }
         res.status(200).json(results);
       });
-      
+
     });
 
 
-    // Rota para inserir dados
+// Rota para inserir dados
 router.post("/form", (req, res) => {
   const { usuario, valor, pgto, tipo, data, categoria, descricao } = req.body; 
   const username = req.user.username;

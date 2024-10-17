@@ -27,7 +27,7 @@ router.get("/financial", (req, res) => {
 
 
 // Rota para inserir dados
-router.post("/form", (req, res) => {
+router.post("/insert", (req, res) => {
   const { usuario, valor, pgto, tipo, data, categoria, descricao } = req.body; 
   const username = req.user.username;
 
@@ -41,6 +41,37 @@ router.post("/form", (req, res) => {
     res.status(200).send("Dados inseridos com sucesso!");
   });
 });
+
+
+//Rota para Atualizar as movimentações
+router.put("/update/:id", (req, res) => {
+  const { id } = req.params;
+  const { valor, pgto, tipo, data, categoria, descricao } = req.body;
+  const query = 'UPDATE financial SET valor = ?, pgto = ?, tipo = ?, data = ?, categoria = ?, descricao = ? WHERE id = ?';
+  pool.query(query, [valor, pgto, tipo, data, categoria, descricao, id], (err, results) => {
+    if (err) {
+      console.error("Erro ao atualizar movimentação:", err);
+      return res.status(500).send("Erro ao atualizar movimentação");
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+//Rota para Deletar as movimentações
+router.delete("/delete/:id", (req, res) => {
+  const { id } = req.params;
+  const query = 'DELETE FROM financial WHERE id = ?';
+  pool.query(query, [id], (err, results) => {
+    if (err) {
+      console.error("Erro ao deletar movimentação:", err);
+      return res.status(500).send("Erro ao deletar movimentação");
+    }
+    res.status(200).json(results);
+  });
+});
+
+
 
 module.exports = router;
 

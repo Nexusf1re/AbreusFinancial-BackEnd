@@ -3,6 +3,7 @@ const pool = require('../config/db');
 
 const router = express.Router();
 
+
 //Rota para listar as categorias
 router.get("/list", (req, res) => {
 
@@ -45,6 +46,21 @@ router.post("/register", (req, res) => {
 });
 
 
+//Rota para atualizar as categorias
+router.put("/update/:id", (req, res) => {
+    const { id } = req.params;
+    const { category, type } = req.body;
+    const query = 'UPDATE category SET category = ?, type = ? WHERE id = ?';
+    pool.query(query, [category, type, id], (err, results) => {
+      if (err) {
+        console.error("Erro ao atualizar categoria:", err);
+        return res.status(500).send("Erro ao atualizar categoria");
+      }
+      res.status(200).json(results);
+    });
+  });
+
+
 //Rota para excluir as categorias
 router.delete("/delete/:id", (req, res) => {
     const { id } = req.params;
@@ -57,7 +73,6 @@ router.delete("/delete/:id", (req, res) => {
       res.status(200).json(results);
     });
   });
-
 
 
 

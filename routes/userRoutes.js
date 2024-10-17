@@ -8,4 +8,6 @@ router.get('/validate-token', (req, res) => {
   res.status(200).json({ message: 'Token válido' });
 });
 
+
+
 module.exports = router;

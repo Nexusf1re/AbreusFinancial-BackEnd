@@ -4,7 +4,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 
 
 // Rota para validar o token
-router.get('/validate-token', (req, res) => {
+router.get('/validate-token', authenticateToken,(req, res) => {
   res.status(200).json({ message: 'Token válido' });
 });
 

@@ -9,30 +9,30 @@ const router = express.Router();
 
 // Rota de cadastro de usuário
 router.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
+  const { Username, Email, Password } = req.body;
 
-  if (!name || !email || !password) {
+  if (!Username || !Email || !Password) {
     return res.status(400).json({ message: "Por favor, preencha todos os campos." });
   }
 
-  const checkQuery = 'SELECT * FROM Usuarios WHERE email = ? OR username = ?';
-  pool.query(checkQuery, [email, name], async (err, results) => {
+  const checkQuery = 'SELECT * FROM users WHERE Email = ? OR Username = ?';
+  pool.query(checkQuery, [Email, Username], async (err, results) => {
     if (err) {
-      console.error("Erro ao verificar email e username:", err);
+      console.error("Erro ao verificar Email e Username:", err);
       return res.status(500).json({ message: "Erro ao processar o cadastro." });
     }
 
-    const existingUser = results.find(user => user.email === email || user.username === name);
+    const existingUser = results.find(user => user.Email === Email || user.Username === name);
     if (existingUser) {
-      const message = existingUser.email === email ? "Este email já está em uso." : "Este nome já está em uso.";
+      const message = existingUser.Email === Email ? "Este Email já está em uso." : "Este nome já está em uso.";
       return res.status(400).json({ message });
     }
 
     try {
       const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-      const insertQuery = `INSERT INTO Usuarios (username, email, password, dataCadastro) VALUES (?, ?, ?, '${localTimestamp}')`;
-      pool.query(insertQuery, [name, email, hashedPassword], (err, result) => {
+      const hashedPassword = await bcrypt.hash(Password, saltRounds);
+      const insertQuery = `INSERT INTO Usuarios (Username, Email, Password, dataCadastro) VALUES (?, ?, ?, '${localTimestamp}')`;
+      pool.query(insertQuery, [Username, Email, hashedPassword], (err, result) => {
         if (err) {
           console.error("Erro ao inserir usuário:", err);
           return res.status(500).json({ message: "Erro ao cadastrar o usuário." });
@@ -49,16 +49,16 @@ router.post("/register", async (req, res) => {
 
 // Rota de login
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { Email, Password } = req.body;
 
-  // Verificar se o email e a senha foram preenchidos
-  if (!email || !password) {
-    return res.status(400).json({ message: "Por favor, preencha o email e a senha." });
+  // Verificar se o Email e a senha foram preenchidos
+  if (!Email || !Password) {
+    return res.status(400).json({ message: "Por favor, preencha o Email e a senha." });
   }
 
-  // Consulta para buscar o usuário pelo email
-  const userQuery = 'SELECT * FROM Usuarios WHERE email = ?';
-  pool.query(userQuery, [email], async (err, results) => {
+  // Consulta para buscar o usuário pelo Email
+  const userQuery = 'SELECT * FROM users WHERE Email = ?';
+  pool.query(userQuery, [Email], async (err, results) => {
     if (err) {
       console.error("Erro ao verificar usuário:", err);
       return res.status(500).json({ message: "Erro ao processar o login." });
@@ -72,16 +72,16 @@ router.post("/login", async (req, res) => {
     const user = results[0];
 
     // Verifica se a senha fornecida corresponde à senha armazenada
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const passwordMatch = await bcrypt.compare(Password, user.Password);
     if (!passwordMatch) {
       return res.status(401).json({ message: "Senha incorreta." });
     }
 
     // Gera um token JWT válido por 10 minutos
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, Email: user.Email },
       process.env.JWT_SECRET,
-      { expiresIn: '10m' }
+      { expiresIn: '1h' }
     );
 
     // Retorna o token de sucesso

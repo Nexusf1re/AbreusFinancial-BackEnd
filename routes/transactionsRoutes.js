@@ -8,14 +8,14 @@ const router = express.Router();
 //Rota para Listar  as movimentações
 router.get("/financial", (req, res) => {
 
-  const usuario = req.query.usuario;  // Obtém o userId da query string
-  if (!usuario) {
-      return res.status(400).json({ message: "usuario é obrigatório." });
+  const Username = req.query.Username;  // Obtém o userId da query string
+  if (!Username) {
+      return res.status(400).json({ message: "username é obrigatório." });
   }
 
-    const query = `SELECT usuario, valor, pgto, tipo, data, categoria, descricao FROM financial WHERE usuario = ?`
+    const query = `SELECT Username, Value, PaymentMethod, Type, Date, Category, Description FROM transactions WHERE Username = ?`
     
-    pool.query(query, [usuario], (err, results) => {
+    pool.query(query, [Username], (err, results) => {
         if (err) {
           console.error("Erro ao buscar os dados:", err);
           return res.status(500).send("Erro ao buscar os dados");
@@ -28,27 +28,29 @@ router.get("/financial", (req, res) => {
 
 // Rota para inserir dados
 router.post("/insert", (req, res) => {
-  const { usuario, valor, pgto, tipo, data, categoria, descricao } = req.body; 
-  const username = req.user.username;
+  const { Value, PaymentMethod, Type, Date, Category, Description } = req.body; 
+  const Username = req.user.username;
+  const { UserId } = req.body;
 
-  const query = `INSERT INTO financial (usuario, valor, pgto, tipo, data, categoria,descricao, Data_Lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, '${localTimestamp}')`;
+  const query = `INSERT INTO transactions (UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, Data_Lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '${localTimestamp}')`;
 
-  pool.query(query, [usuario, valor, pgto, tipo, data, categoria, descricao], (err, results) => {
+  pool.query(query, [UserId, Username, Value, PaymentMethod, Type, Date, Category, Description], (err, results) => {
     if (err) {
       console.error("Error inserting data:", err);
       return res.status(500).send("Erro ao inserir os dados");
     }
-    res.status(200).send("Dados inseridos com sucesso!");
+    res.status(200).send("Dados inserIdos com sucesso!");
   });
 });
 
 
 //Rota para Atualizar as movimentações
-router.put("/update/:id", (req, res) => {
-  const { id } = req.params;
-  const { valor, pgto, tipo, data, categoria, descricao } = req.body;
-  const query = 'UPDATE financial SET valor = ?, pgto = ?, tipo = ?, data = ?, categoria = ?, descricao = ? WHERE id = ?';
-  pool.query(query, [valor, pgto, tipo, data, categoria, descricao, id], (err, results) => {
+router.put("/update/:Id", (req, res) => {
+  const { Id } = req.params;
+  const { UserId } = req.body;
+  const { Value, PaymentMethod, Type, Date, Category, Description } = req.body;
+  const query = 'UPDATE transactions SET Value = ?, PaymentMethod = ?, Type = ?, Date = ?, Category = ?, Description = ? WHERE Id = ? AND UserId = ?';
+  pool.query(query, [Value, PaymentMethod, Type, Date, Category, Description, Id, UserId], (err, results) => {
     if (err) {
       console.error("Erro ao atualizar movimentação:", err);
       return res.status(500).send("Erro ao atualizar movimentação");
@@ -59,10 +61,11 @@ router.put("/update/:id", (req, res) => {
 
 
 //Rota para Deletar as movimentações
-router.delete("/delete/:id", (req, res) => {
-  const { id } = req.params;
-  const query = 'DELETE FROM financial WHERE id = ?';
-  pool.query(query, [id], (err, results) => {
+router.delete("/delete/:Id", (req, res) => {
+  const { Id } = req.params;
+  const { UserId } = req.body;
+  const query = 'DELETE FROM transactions WHERE Id = ? AND UserId = ?';
+  pool.query(query, [Id, UserId], (err, results) => {
     if (err) {
       console.error("Erro ao deletar movimentação:", err);
       return res.status(500).send("Erro ao deletar movimentação");

@@ -5,25 +5,25 @@ const localTimestamp = require('../config/timestamp');
 const router = express.Router();
 
 
-//Rota para Listar  as movimentações
 router.get("/financial", (req, res) => {
-
-  const Username = req.query.Username;  // Obtém o userId da query string
+  const Username = req.query.Username;  
+  console.log("Requisição recebida com Username:", Username); // Log aqui
   if (!Username) {
       return res.status(400).json({ message: "username é obrigatório." });
   }
 
-    const query = `SELECT Username, Value, PaymentMethod, Type, Date, Category, Description FROM transactions WHERE Username = ?`
-    
-    pool.query(query, [Username], (err, results) => {
-        if (err) {
+  const query = `SELECT Username, Value, PaymentMethod, Type, Date, Category, Description FROM transactions WHERE Username = ?`;
+  
+  pool.query(query, [Username], (err, results) => {
+      if (err) {
           console.error("Erro ao buscar os dados:", err);
           return res.status(500).send("Erro ao buscar os dados");
-        }
-        res.status(200).json(results);
-      });
+      }
+      console.log("Resultados encontrados:", results); // Log dos resultados
+      res.status(200).json(results);
+  });
+});
 
-    });
 
 
 // Rota para inserir dados

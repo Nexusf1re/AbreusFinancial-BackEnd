@@ -35,13 +35,22 @@ router.post("/insert", (req, res) => {
     return res.status(400).json({ error: "UserId ou Username ausente." });
   }
 
+  // Verifique se a data foi fornecida
+  if (!dateString) {
+    return res.status(400).json({ error: "Data ausente." });
+  }
+
   // Formatar a data corretamente
-  const formattedDate = new Date(dateString).toISOString().slice(0, 19).replace('T', ' ');
+  const formattedDate = new Date(dateString);
+  if (isNaN(formattedDate)) {
+    return res.status(400).json({ error: "Data inválida." });
+  }
+
   const localTimestamp = getLocalTimestamp();
 
-  const query = `INSERT INTO transactions (UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, Data_Lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const query = `INSERT INTO transactions (UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, EntryDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  pool.query(query, [UserId, Username, Value, PaymentMethod, Type, formattedDate, Category, Description, localTimestamp], (err, results) => {
+  pool.query(query, [UserId, Username, Value, PaymentMethod, Type, formattedDate.toISOString().slice(0, 19).replace('T', ' '), Category, Description, localTimestamp], (err, results) => {
     if (err) {
       console.error("Error inserting data:", err.message);
       return res.status(500).json({ error: "Erro ao inserir os dados" });
@@ -49,6 +58,7 @@ router.post("/insert", (req, res) => {
     res.status(200).json({ message: "Dados inseridos com sucesso!" });
   });
 });
+
 
 
 

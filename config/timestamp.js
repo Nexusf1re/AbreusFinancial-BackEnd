@@ -1,5 +1,6 @@
-//constante para obter o timestamp local
-const timestamp = new Intl.DateTimeFormat('en-CA', {
+// função para obter o timestamp local no formato desejado
+const getLocalTimestamp = () => {
+  const timestamp = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',
     month: '2-digit',
@@ -9,7 +10,10 @@ const timestamp = new Intl.DateTimeFormat('en-CA', {
     second: '2-digit',
     hour12: false,
   }).format(new Date());
-  
-  const localTimestamp = timestamp.replace(/\//g, '-').replace(',', '');
 
-  module.exports = localTimestamp;
+  // Formata o timestamp
+  const localTimestamp = timestamp.replace(/\//g, '-').replace(',', '');
+  return localTimestamp; // Retorna o timestamp no formato 'YYYY-MM-DD HH:mm:ss'
+};
+
+module.exports = getLocalTimestamp;

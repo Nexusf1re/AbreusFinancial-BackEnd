@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../config/db');
-const localTimestamp = require('../config/timestamp');
+const getLocalTimestamp = require('../config/timestamp'); // Importa a função de timestamp
 
 const router = express.Router();
 
@@ -26,20 +26,22 @@ router.get("/financial", (req, res) => {
 
 
 
-//Rota para inserir as movimentações
+// Rota para inserir as movimentações
 router.post("/insert", (req, res) => {
-  const { Value, PaymentMethod, Type, Date, Category, Description, UserId, Username } = req.body; 
+  const { Value, PaymentMethod, Type, Date: dateString, Category, Description, UserId, Username } = req.body; 
 
   // Validação básica
   if (!UserId || !Username) {
     return res.status(400).json({ error: "UserId ou Username ausente." });
   }
 
-  const localTimestamp = new Date().toISOString(); // Ajuste para a data atual
+  // Formatar a data corretamente
+  const formattedDate = new Date(dateString).toISOString().slice(0, 19).replace('T', ' ');
+  const localTimestamp = getLocalTimestamp();
 
   const query = `INSERT INTO transactions (UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, Data_Lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  pool.query(query, [UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, localTimestamp], (err, results) => {
+  pool.query(query, [UserId, Username, Value, PaymentMethod, Type, formattedDate, Category, Description, localTimestamp], (err, results) => {
     if (err) {
       console.error("Error inserting data:", err.message);
       return res.status(500).json({ error: "Erro ao inserir os dados" });
@@ -47,6 +49,7 @@ router.post("/insert", (req, res) => {
     res.status(200).json({ message: "Dados inseridos com sucesso!" });
   });
 });
+
 
 
 

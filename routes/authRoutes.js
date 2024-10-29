@@ -77,7 +77,6 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Senha incorreta." });
     }
 
-    // Gera um token JWT válido por 10 minutos
     const token = jwt.sign(
       { id: user.id, Email: user.Email },
       process.env.JWT_SECRET,
@@ -87,7 +86,9 @@ router.post("/login", async (req, res) => {
     // Retorna o token de sucesso
     res.status(200).json({
       message: "Login bem-sucedido!",
-      token
+      token,
+      Username: user.Username
+      
     });
   });
 });

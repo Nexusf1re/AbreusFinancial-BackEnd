@@ -26,22 +26,28 @@ router.get("/financial", (req, res) => {
 
 
 
-// Rota para inserir dados
+//Rota para inserir as movimentações
 router.post("/insert", (req, res) => {
-  const { Value, PaymentMethod, Type, Date, Category, Description } = req.body; 
-  const Username = req.user.username;
-  const { UserId } = req.body;
+  const { Value, PaymentMethod, Type, Date, Category, Description, UserId, Username } = req.body; 
 
-  const query = `INSERT INTO transactions (UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, Data_Lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '${localTimestamp}')`;
+  // Validação básica
+  if (!UserId || !Username) {
+    return res.status(400).json({ error: "UserId ou Username ausente." });
+  }
 
-  pool.query(query, [UserId, Username, Value, PaymentMethod, Type, Date, Category, Description], (err, results) => {
+  const localTimestamp = new Date().toISOString(); // Ajuste para a data atual
+
+  const query = `INSERT INTO transactions (UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, Data_Lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  pool.query(query, [UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, localTimestamp], (err, results) => {
     if (err) {
-      console.error("Error inserting data:", err);
-      return res.status(500).send("Erro ao inserir os dados");
+      console.error("Error inserting data:", err.message);
+      return res.status(500).json({ error: "Erro ao inserir os dados" });
     }
-    res.status(200).send("Dados inserIdos com sucesso!");
+    res.status(200).json({ message: "Dados inseridos com sucesso!" });
   });
 });
+
 
 
 //Rota para Atualizar as movimentações

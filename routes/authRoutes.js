@@ -87,7 +87,8 @@ router.post("/login", async (req, res) => {
     res.status(200).json({
       message: "Login bem-sucedido!",
       token,
-      Username: user.Username
+      Username: user.Username,
+      UserId: user.Id
       
     });
   });

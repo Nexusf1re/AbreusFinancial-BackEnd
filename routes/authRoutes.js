@@ -22,7 +22,7 @@ router.post("/register", async (req, res) => {
       return res.status(500).json({ message: "Erro ao processar o cadastro." });
     }
 
-    const existingUser = results.find(user => user.Email === Email || user.Username === name);
+    const existingUser = results.find(user => user.Email === Email || user.Username === Username);
     if (existingUser) {
       const message = existingUser.Email === Email ? "Este Email já está em uso." : "Este nome já está em uso.";
       return res.status(400).json({ message });

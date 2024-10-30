@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const getLocalTimestamp = require('../config/timestamp'); // Importa a função de timestamp
-
+const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
 
@@ -26,13 +26,8 @@ router.get("/financial", (req, res) => {
 
 
 // Rota para inserir as movimentações
-router.post("/insert", (req, res) => {
-  const { Value, PaymentMethod, Type, Date: dateString, Category, Description, UserId, Username } = req.body; 
-
-  // Validação básica
-  if (!UserId || !Username) {
-    return res.status(400).json({ error: "UserId ou Username ausente." });
-  }
+router.post("/insert", authenticateToken, (req, res) => {
+  const { Value, PaymentMethod, Type, Date: dateString, Category, Description } = req.body;
 
   // Verifique se a data foi fornecida
   if (!dateString) {
@@ -45,13 +40,17 @@ router.post("/insert", (req, res) => {
     return res.status(400).json({ error: "Data inválida." });
   }
 
+  // Pega o UserId e Username do token decodificado
+  const UserId = req.user.id;
+  const Username = req.user.username;
+
   const localTimestamp = getLocalTimestamp();
 
   const query = `INSERT INTO transactions (UserId, Username, Value, PaymentMethod, Type, Date, Category, Description, EntryDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   pool.query(query, [UserId, Username, Value, PaymentMethod, Type, formattedDate.toISOString().slice(0, 19).replace('T', ' '), Category, Description, localTimestamp], (err, results) => {
     if (err) {
-      console.error("Error inserting data:", err.message);
+      console.error("Erro ao inserir os dados:", err.message);
       return res.status(500).json({ error: "Erro ao inserir os dados" });
     }
     res.status(200).json({ message: "Dados inseridos com sucesso!" });

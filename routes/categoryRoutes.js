@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../config/db');
-const authenticateToken = require('../middleware/authMiddleware'); // Importa o middleware de autenticação
+const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // Rota para listar as categorias

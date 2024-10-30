@@ -5,7 +5,7 @@ const router = express.Router();
 
 
 // Rota para buscar lançamentos da Entradas
-router.get("/inflows", authenticateToken, (req, res) => {
+router.get("/Inflows", authenticateToken, (req, res) => {
   const UserId = req.user.id; 
   console.log("Requisição recebida com UserId:", UserId); 
 

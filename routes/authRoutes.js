@@ -3,7 +3,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
-const localTimestamp = require('../config/timestamp');
+const getLocalTimestamp = require('../config/timestamp');
 
 const router = express.Router();
 
@@ -11,6 +11,8 @@ const router = express.Router();
 // Rota de cadastro de usuário
 router.post("/register", async (req, res) => {
   const { Username, Email, Password } = req.body;
+
+  const localTimestamp = getLocalTimestamp();
 
   if (!Username || !Email || !Password) {
     return res.status(400).json({ message: "Por favor, preencha todos os campos." });
@@ -32,7 +34,7 @@ router.post("/register", async (req, res) => {
     try {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(Password, saltRounds);
-      const insertQuery = `INSERT INTO users (Username, Email, Password, dataCadastro) VALUES (?, ?, ?, '${localTimestamp}')`; // Verifique se a tabela é 'users'
+      const insertQuery = `INSERT INTO users (Username, Email, Password, SignupDate) VALUES (?, ?, ?, '${localTimestamp}')`;
       pool.query(insertQuery, [Username, Email, hashedPassword], (err, result) => {
         if (err) {
           console.error("Erro ao inserir usuário:", err);

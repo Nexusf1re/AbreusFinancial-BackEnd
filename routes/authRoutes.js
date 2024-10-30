@@ -57,7 +57,7 @@ router.post("/login", async (req, res) => {
   }
 
   // Consulta para buscar o usuário pelo Email
-  const userQuery = 'SELECT * FROM users WHERE Email = ?';
+  const userQuery = "SELECT * FROM users WHERE Email = ?";
   pool.query(userQuery, [Email], async (err, results) => {
     if (err) {
       console.error("Erro ao verificar usuário:", err);
@@ -77,19 +77,21 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Senha incorreta." });
     }
 
+    // Cria o token com Id, Email e Username no payload
     const token = jwt.sign(
-      { id: user.id, Email: user.Email },
+      {
+        id: user.Id,
+        email: user.Email, 
+        username: user.Username 
+      },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: "1h" }
     );
 
-    // Retorna o token de sucesso
+    // Retorna o token contendo todas as informações do usuário
     res.status(200).json({
       message: "Login bem-sucedido!",
-      token,
-      Username: user.Username,
-      UserId: user.Id
-      
+      token
     });
   });
 });

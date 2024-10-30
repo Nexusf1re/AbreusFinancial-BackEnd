@@ -1,20 +1,24 @@
 const express = require('express');
 const pool = require('../config/db');
-const getLocalTimestamp = require('../config/timestamp'); // Importa a função de timestamp
+const getLocalTimestamp = require('../config/timestamp');
 const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
 
-router.get("/financial", (req, res) => {
-  const Username = req.query.Username;  
-  console.log("Requisição recebida com Username:", Username); // Log aqui
-  if (!Username) {
-      return res.status(400).json({ message: "username é obrigatório." });
+router.get("/financial", authenticateToken, (req, res) => {
+  const UserId = req.user.id; 
+  console.log("Requisição recebida com UserId:", UserId); 
+
+  if (!UserId) {
+      return res.status(400).json({ message: "UserId é obrigatório." });
   }
 
-  const query = `SELECT Username, Value, PaymentMethod, Type, Date, Category, Description FROM transactions WHERE Username = ?`;
+  const query = `
+    SELECT Username, Value, PaymentMethod, Type, Date, Category, Description 
+    FROM transactions 
+    WHERE UserId = ?`;
   
-  pool.query(query, [Username], (err, results) => {
+  pool.query(query, [UserId], (err, results) => {
       if (err) {
           console.error("Erro ao buscar os dados:", err);
           return res.status(500).send("Erro ao buscar os dados");
@@ -25,22 +29,20 @@ router.get("/financial", (req, res) => {
 
 
 
+
 // Rota para inserir as movimentações
 router.post("/insert", authenticateToken, (req, res) => {
   const { Value, PaymentMethod, Type, Date: dateString, Category, Description } = req.body;
 
-  // Verifique se a data foi fornecida
   if (!dateString) {
     return res.status(400).json({ error: "Data ausente." });
   }
 
-  // Formatar a data corretamente
   const formattedDate = new Date(dateString);
   if (isNaN(formattedDate)) {
     return res.status(400).json({ error: "Data inválida." });
   }
 
-  // Pega o UserId e Username do token decodificado
   const UserId = req.user.id;
   const Username = req.user.username;
 
@@ -56,9 +58,6 @@ router.post("/insert", authenticateToken, (req, res) => {
     res.status(200).json({ message: "Dados inseridos com sucesso!" });
   });
 });
-
-
-
 
 
 //Rota para Atualizar as movimentações

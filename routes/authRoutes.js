@@ -7,6 +7,7 @@ const localTimestamp = require('../config/timestamp');
 
 const router = express.Router();
 
+
 // Rota de cadastro de usuário
 router.post("/register", async (req, res) => {
   const { Username, Email, Password } = req.body;
@@ -46,6 +47,7 @@ router.post("/register", async (req, res) => {
   });
 });
 
+
 // Rota de login
 router.post("/login", async (req, res) => {
   const { Email, Password } = req.body;
@@ -69,14 +71,13 @@ router.post("/login", async (req, res) => {
     }
 
     const user = results[0];
+    
 
-    // Verifica se a senha fornecida corresponde à senha armazenada
     const passwordMatch = await bcrypt.compare(Password, user.Password);
     if (!passwordMatch) {
       return res.status(401).json({ message: "Senha incorreta." });
     }
 
-    // Cria o token com Id, Email e Username no payload
     const token = jwt.sign(
       {
         id: user.Id,
@@ -84,10 +85,8 @@ router.post("/login", async (req, res) => {
         username: user.Username 
       },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' } // Opcional: define um tempo de expiração para o token
     );
 
-    // Retorna o token contendo todas as informações do usuário
     res.status(200).json({
       message: "Login bem-sucedido!",
       token,

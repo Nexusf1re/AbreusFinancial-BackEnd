@@ -1,3 +1,4 @@
+// Rota de autenticação
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -5,7 +6,6 @@ const pool = require('../config/db');
 const localTimestamp = require('../config/timestamp');
 
 const router = express.Router();
-
 
 // Rota de cadastro de usuário
 router.post("/register", async (req, res) => {
@@ -31,7 +31,7 @@ router.post("/register", async (req, res) => {
     try {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(Password, saltRounds);
-      const insertQuery = `INSERT INTO Usuarios (Username, Email, Password, dataCadastro) VALUES (?, ?, ?, '${localTimestamp}')`;
+      const insertQuery = `INSERT INTO users (Username, Email, Password, dataCadastro) VALUES (?, ?, ?, '${localTimestamp}')`; // Verifique se a tabela é 'users'
       pool.query(insertQuery, [Username, Email, hashedPassword], (err, result) => {
         if (err) {
           console.error("Erro ao inserir usuário:", err);
@@ -45,7 +45,6 @@ router.post("/register", async (req, res) => {
     }
   });
 });
-
 
 // Rota de login
 router.post("/login", async (req, res) => {
@@ -85,16 +84,16 @@ router.post("/login", async (req, res) => {
         username: user.Username 
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: '1h' } // Opcional: define um tempo de expiração para o token
     );
 
     // Retorna o token contendo todas as informações do usuário
     res.status(200).json({
       message: "Login bem-sucedido!",
-      token
+      token,
+      username: user.Username
     });
   });
 });
-
 
 module.exports = router;

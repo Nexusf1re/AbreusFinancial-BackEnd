@@ -52,12 +52,10 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   const { Email, Password } = req.body;
 
-  // Verificar se o Email e a senha foram preenchidos
   if (!Email || !Password) {
     return res.status(400).json({ message: "Por favor, preencha o Email e a senha." });
   }
 
-  // Consulta para buscar o usuário pelo Email
   const userQuery = "SELECT * FROM users WHERE Email = ?";
   pool.query(userQuery, [Email], async (err, results) => {
     if (err) {
@@ -65,7 +63,6 @@ router.post("/login", async (req, res) => {
       return res.status(500).json({ message: "Erro ao processar o login." });
     }
 
-    // Verifica se o Email foi encontrado
     if (results.length === 0) {
       return res.status(400).json({ message: "Email não encontrado." });
     }

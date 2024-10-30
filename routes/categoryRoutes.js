@@ -1,36 +1,32 @@
 const express = require('express');
 const pool = require('../config/db');
-
+const authenticateToken = require('../middleware/authMiddleware'); // Importa o middleware de autenticação
 const router = express.Router();
 
-//get, post, put, delete
+// Rota para listar as categorias
+router.get("/list", authenticateToken, (req, res) => { 
+    const UserId = req.user.id; 
+    console.log("Requisição recebida com UserId:", UserId);
 
-
-//Rota para listar as categorias
-router.get("/list", (req, res) => {
-
-    const UserId = req.query.UserId;
-    if(!UserId) {
-         return res.status(400).json({ message: "UserId é obrigatório." });
+    if (!UserId) {
+        return res.status(400).json({ message: "UserId é obrigatório." });
     }
 
     const query = 'SELECT * FROM categories WHERE UserId = ?';
 
-
-    pool.query(query,[UserId], (err, results) => {
+    pool.query(query, [UserId], (err, results) => {
         if (err) {
             console.error("Erro ao buscar os dados:", err);
             return res.status(500).send("Erro ao buscar os dados");
         }
         res.status(200).json(results);
     });
-
 });
 
-
-//Rota para cadastrar as categorias
-router.post("/register", (req, res) => {
-    const { UserId, Category, Type } = req.body;
+// Rota para cadastrar as categorias
+router.post("/register", authenticateToken, (req, res) => { 
+    const UserId = req.user.id; 
+    const { Category, Type } = req.body;
 
     if (!UserId || !Category || !Type) {
         return res.status(400).json({ message: "UserId, Category e Type são obrigatórios." });
@@ -44,45 +40,43 @@ router.post("/register", (req, res) => {
         }
         res.status(200).json(results);
     });
-
 });
 
-
-//Rota para atualizar as categorias
-router.put("/update/:Id", (req, res) => {
+// Rota para atualizar as categorias
+router.put("/update/:Id", authenticateToken, (req, res) => { 
     const { Id } = req.params;
     const { Category, Type } = req.body;
-    const query = 'UPDATE categories SET Category = ?, Type = ? WHERE Id = ?';
-    pool.query(query, [Category, Type, Id], (err, results) => {
-      if (err) {
-        console.error("Erro ao atualizar categoria:", err);
-        return res.status(500).send("Erro ao atualizar categoria");
-      }
-      res.status(200).json(results);
+    const query = 'UPDATE categories SET Category = ?, Type = ? WHERE Id = ? AND UserId = ?';
+    const UserId = req.user.id; 
+
+    pool.query(query, [Category, Type, Id, UserId], (err, results) => { 
+        if (err) {
+            console.error("Erro ao atualizar categoria:", err);
+            return res.status(500).send("Erro ao atualizar categoria");
+        }
+        res.status(200).json(results);
     });
-  });
-
-
-//Rota para excluir as categorias
-router.delete("/delete/:Id", (req, res) => {
-  const { Id } = req.params;
-  const { UserId } = req.body;
-  
-  if(!UserId) {
-    return res.status(400).send("UserId é obrigatório!");
-  }
-
-  const query = "DELETE FROM categories WHERE Id = ? AND UserId = ?";
-  pool.query(query, [Id, UserId], (err, results) => {
-    if(err) {
-      console.error("Erro ao excluir a categoria:", err);
-      return res.status(500).send("Erro ao excluir categoria");
-    }
-
-    res.status(200).json({ message: "Categoria excluída com sucesso"});
-  });
 });
 
 
+// Rota para excluir as categorias
+router.delete("/delete/:Id", authenticateToken, (req, res) => { 
+    const { Id } = req.params;
+    const UserId = req.user.id; 
+
+    if (!UserId) {
+        return res.status(400).send("UserId é obrigatório!");
+    }
+
+    const query = "DELETE FROM categories WHERE Id = ? AND UserId = ?";
+    pool.query(query, [Id, UserId], (err, results) => {
+        if (err) {
+            console.error("Erro ao excluir a categoria:", err);
+            return res.status(500).send("Erro ao excluir categoria");
+        }
+
+        res.status(200).json({ message: "Categoria excluída com sucesso" });
+    });
+});
 
 module.exports = router;

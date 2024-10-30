@@ -4,7 +4,6 @@ const getLocalTimestamp = require('../config/timestamp');
 const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
-
 router.get("/financial", authenticateToken, (req, res) => {
   const UserId = req.user.id; 
   console.log("Requisição recebida com UserId:", UserId); 
@@ -26,9 +25,6 @@ router.get("/financial", authenticateToken, (req, res) => {
       res.status(200).json(results);
   });
 });
-
-
-
 
 // Rota para inserir as movimentações
 router.post("/insert", authenticateToken, (req, res) => {
@@ -59,13 +55,18 @@ router.post("/insert", authenticateToken, (req, res) => {
   });
 });
 
-
-//Rota para Atualizar as movimentações
-router.put("/update/:Id", (req, res) => {
+// Rota para Atualizar as movimentações
+router.put("/update/:Id", authenticateToken, (req, res) => { 
   const { Id } = req.params;
-  const { UserId } = req.body;
+  const UserId = req.user.id; 
   const { Value, PaymentMethod, Type, Date, Category, Description } = req.body;
+
+  if (!UserId) {
+    return res.status(400).send("UserId é obrigatório!");
+  }
+
   const query = 'UPDATE transactions SET Value = ?, PaymentMethod = ?, Type = ?, Date = ?, Category = ?, Description = ? WHERE Id = ? AND UserId = ?';
+  
   pool.query(query, [Value, PaymentMethod, Type, Date, Category, Description, Id, UserId], (err, results) => {
     if (err) {
       console.error("Erro ao atualizar movimentação:", err);
@@ -75,22 +76,24 @@ router.put("/update/:Id", (req, res) => {
   });
 });
 
-
-//Rota para Deletar as movimentações
-router.delete("/delete/:Id", (req, res) => {
+// Rota para Deletar as movimentações
+router.delete("/delete/:Id", authenticateToken, (req, res) => { 
   const { Id } = req.params;
-  const { UserId } = req.body;
+  const UserId = req.user.id; 
+
+  if (!UserId) {
+    return res.status(400).send("UserId é obrigatório!");
+  }
+
   const query = 'DELETE FROM transactions WHERE Id = ? AND UserId = ?';
+  
   pool.query(query, [Id, UserId], (err, results) => {
     if (err) {
       console.error("Erro ao deletar movimentação:", err);
       return res.status(500).send("Erro ao deletar movimentação");
     }
-    res.status(200).json(results);
+    res.status(200).json({ message: "Movimentação deletada com sucesso" });
   });
 });
 
-
-
 module.exports = router;
-

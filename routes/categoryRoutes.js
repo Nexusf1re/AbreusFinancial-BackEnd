@@ -12,7 +12,7 @@ router.get("/list", authenticateToken, (req, res) => {
         return res.status(400).json({ message: "UserId é obrigatório." });
     }
 
-    const query = 'SELECT * FROM categories WHERE UserId = ?';
+    const query = 'SELECT Category, Type FROM categories WHERE UserId = ?';
 
     pool.query(query, [UserId], (err, results) => {
         if (err) {

@@ -19,7 +19,6 @@ router.get("/financial", (req, res) => {
           console.error("Erro ao buscar os dados:", err);
           return res.status(500).send("Erro ao buscar os dados");
       }
-      console.log("Resultados encontrados:", results); // Log dos resultados
       res.status(200).json(results);
   });
 });

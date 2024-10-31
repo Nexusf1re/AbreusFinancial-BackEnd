@@ -6,7 +6,6 @@ const router = express.Router();
 
 router.get("/financial", authenticateToken, (req, res) => {
   const UserId = req.user.id; 
-  console.log("Requisição recebida com UserId:", UserId); 
 
   if (!UserId) {
       return res.status(400).json({ message: "UserId é obrigatório." });

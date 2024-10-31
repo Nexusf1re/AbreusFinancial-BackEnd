@@ -7,7 +7,6 @@ const router = express.Router();
 // Rota para buscar lançamentos da Entradas
 router.get("/Inflows", authenticateToken, (req, res) => {
   const UserId = req.user.id; 
-  console.log("Requisição recebida com UserId:", UserId); 
 
   if (!UserId) {
       return res.status(400).json({ message: "UserId é obrigatório." });
@@ -30,7 +29,6 @@ router.get("/Inflows", authenticateToken, (req, res) => {
 // Rota para buscar lançamentos da saídas do Debito
 router.get("/OutflowsDebit", authenticateToken, (req, res) => {
     const UserId = req.user.id; 
-    console.log("Requisição recebida com UserId:", UserId); 
   
     if (!UserId) {
         return res.status(400).json({ message: "UserId é obrigatório." });
@@ -53,8 +51,7 @@ router.get("/OutflowsDebit", authenticateToken, (req, res) => {
 // Rota para buscar lançamentos de saídas do Crédito
 router.get("/OutflowsCredit", authenticateToken, (req, res) => {
     const UserId = req.user.id; 
-    console.log("Requisição recebida com UserId:", UserId); 
-  
+
     if (!UserId) {
         return res.status(400).json({ message: "UserId é obrigatório." });
     }
@@ -76,7 +73,6 @@ router.get("/OutflowsCredit", authenticateToken, (req, res) => {
   // Rota para buscar lançamentos das Saídas
 router.get("/Outflows", authenticateToken, (req, res) => {
     const UserId = req.user.id; 
-    console.log("Requisição recebida com UserId:", UserId); 
   
     if (!UserId) {
         return res.status(400).json({ message: "UserId é obrigatório." });

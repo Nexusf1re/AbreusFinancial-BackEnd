@@ -12,7 +12,7 @@ router.get("/financial", authenticateToken, (req, res) => {
   }
 
   const query = `
-    SELECT Username, Value, PaymentMethod, Type, Date, Category, Description 
+    SELECT Id, Username, Value, PaymentMethod, Type, Date, Category, Description 
     FROM transactions 
     WHERE UserId = ?`;
   

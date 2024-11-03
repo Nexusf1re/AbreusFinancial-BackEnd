@@ -12,7 +12,7 @@ router.get("/Inflows", authenticateToken, (req, res) => {
     }
 
     const query = `
-        SELECT Value, DATE_FORMAT(Date, '%Y-%m-%d') AS Date, Category
+        SELECT Id, Value, Category, Type, PaymentMethod, DATE_FORMAT(Date, '%Y-%m-%d') AS Date
         FROM Inflows 
         WHERE UserId = ?`;
 
@@ -34,7 +34,7 @@ router.get("/OutflowsDebit", authenticateToken, (req, res) => {
     }
 
     const query = `
-        SELECT Value, DATE_FORMAT(Date, '%Y-%m-%d') AS Date, Category
+        SELECT Id, Value, Category, Type, PaymentMethod, DATE_FORMAT(Date, '%Y-%m-%d') AS Date
         FROM DebitOutflows 
         WHERE UserId = ?`;
 
@@ -56,7 +56,7 @@ router.get("/OutflowsCredit", authenticateToken, (req, res) => {
     }
 
     const query = `
-        SELECT Value, DATE_FORMAT(Date, '%Y-%m-%d') AS Date, Category
+        SELECT Id, Value, Category, Type, PaymentMethod, DATE_FORMAT(Date, '%Y-%m-%d') AS Date
         FROM CreditOutflows 
         WHERE UserId = ?`;
 
@@ -78,7 +78,7 @@ router.get("/Outflows", authenticateToken, (req, res) => {
     }
 
     const query = `
-        SELECT Value, DATE_FORMAT(Date, '%Y-%m-%d') AS Date, Category
+        SELECT Id, Value, Category, Type, PaymentMethod, DATE_FORMAT(Date, '%Y-%m-%d') AS Date
         FROM Outflows 
         WHERE UserId = ?`;
 

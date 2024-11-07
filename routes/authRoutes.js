@@ -26,7 +26,7 @@ router.post("/register", async (req, res) => {
       return res.status(500).json({ message: "Erro ao processar o cadastro." });
     }
 
-    // Se o email já estiver em uso, retornar erro
+    
     if (results.length > 0) {
       return res.status(400).json({ message: "Este Email já está em uso." });
     }

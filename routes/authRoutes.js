@@ -18,22 +18,24 @@ router.post("/register", async (req, res) => {
     return res.status(400).json({ message: "Por favor, preencha todos os campos." });
   }
 
-  const checkQuery = 'SELECT * FROM users WHERE Email = ? OR Username = ?';
-  pool.query(checkQuery, [Email, Username], async (err, results) => {
+  // Verificar se o email já está em uso
+  const checkEmailQuery = 'SELECT * FROM users WHERE Email = ?';
+  pool.query(checkEmailQuery, [Email], async (err, results) => {
     if (err) {
-      console.error("Erro ao verificar Email e Username:", err);
+      console.error("Erro ao verificar Email:", err);
       return res.status(500).json({ message: "Erro ao processar o cadastro." });
     }
 
-    const existingUser = results.find(user => user.Email === Email || user.Username === Username);
-    if (existingUser) {
-      const message = existingUser.Email === Email ? "Este Email já está em uso." : "Este nome já está em uso.";
-      return res.status(400).json({ message });
+    // Se o email já estiver em uso, retornar erro
+    if (results.length > 0) {
+      return res.status(400).json({ message: "Este Email já está em uso." });
     }
 
     try {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(Password, saltRounds);
+
+      // Inserir o novo usuário na tabela
       const insertQuery = `INSERT INTO users (Username, Email, Password, SignupDate) VALUES (?, ?, ?, '${localTimestamp}')`;
       pool.query(insertQuery, [Username, Email, hashedPassword], (err, result) => {
         if (err) {

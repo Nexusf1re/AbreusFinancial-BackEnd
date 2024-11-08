@@ -32,21 +32,21 @@ router.post('/generate-reset-link', (req, res) => {
 
 
 
-// Rota para redefinir a senha - Agora usando o middleware para validar o token
-router.post('/reset-password', authenticateToken, async (req, res) => {
-  const { newPassword } = req.body;
-  const { id, email } = req.user;
+router.post('/reset-password', async (req, res) => {
+  const { newPassword, token } = req.body;
 
-  if (!newPassword) {
-    return res.status(400).json({ message: 'Nova senha é obrigatória' });
+  if (!newPassword || !token) {
+    return res.status(400).json({ message: 'Token e nova senha são obrigatórios' });
   }
 
+  // Decodifique e valide o token antes de atualizar a senha
   try {
-    // Criptografa a nova senha
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { id, email } = decoded;
+
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Atualiza a senha no banco de dados
     db.query(
       'UPDATE users SET Password = ? WHERE Id = ? AND Email = ?',
       [hashedPassword, id, email],
@@ -64,10 +64,11 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
       }
     );
   } catch (error) {
-    console.error('Erro ao criptografar a senha:', error);
-    res.status(500).json({ message: 'Erro ao processar a redefinição de senha' });
+    console.error('Erro ao validar o token:', error);
+    res.status(400).json({ message: 'Token inválido ou expirado' });
   }
 });
+
 
 
 module.exports = router;

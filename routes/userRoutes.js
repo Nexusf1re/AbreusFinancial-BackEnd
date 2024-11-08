@@ -1,8 +1,8 @@
-const db = require('../config/db');
+const bcrypt = require('bcryptjs');
+const pool = require('../config/db'); // Certificando-se que está importando corretamente o pool de conexões
 const jwt = require('jsonwebtoken');
 const express = require('express');
 const router = express.Router();
-const authenticateToken = require('../middleware/authMiddleware'); // Importando o middleware
 
 const { JWT_SECRET } = process.env;
 
@@ -10,7 +10,7 @@ const { JWT_SECRET } = process.env;
 router.post('/generate-reset-link', (req, res) => {
   const { email } = req.body;
 
-  db.query('SELECT Id, Email, Username FROM users WHERE Email = ?', [email], (err, rows) => {
+  pool.query('SELECT Id, Email, Username FROM users WHERE Email = ?', [email], (err, rows) => {
     if (err) {
       console.error('Erro ao consultar o banco de dados:', err);
       return res.status(500).json({ message: 'Erro interno do servidor' });
@@ -23,6 +23,7 @@ router.post('/generate-reset-link', (req, res) => {
     const user = rows[0];
 
     const token = jwt.sign({ id: user.Id, email: user.Email }, JWT_SECRET, { expiresIn: '15m' });
+    console.log(`Token gerado para o usuário ${user.Username}, expira em: ${new Date(Date.now() + 15 * 60 * 1000).toISOString()}`);
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
@@ -30,8 +31,7 @@ router.post('/generate-reset-link', (req, res) => {
   });
 });
 
-
-
+// Rota para redefinir a senha
 router.post('/reset-password', async (req, res) => {
   const { newPassword, token } = req.body;
 
@@ -39,7 +39,6 @@ router.post('/reset-password', async (req, res) => {
     return res.status(400).json({ message: 'Token e nova senha são obrigatórios' });
   }
 
-  // Decodifique e valide o token antes de atualizar a senha
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { id, email } = decoded;
@@ -47,7 +46,7 @@ router.post('/reset-password', async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    db.query(
+    pool.query(
       'UPDATE users SET Password = ? WHERE Id = ? AND Email = ?',
       [hashedPassword, id, email],
       (err, result) => {
@@ -64,11 +63,15 @@ router.post('/reset-password', async (req, res) => {
       }
     );
   } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(400).json({ message: 'Token expirado, por favor gere um novo link' });
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(400).json({ message: 'Token inválido' });
+    }
     console.error('Erro ao validar o token:', error);
-    res.status(400).json({ message: 'Token inválido ou expirado' });
+    return res.status(500).json({ message: 'Erro interno ao validar o token' });
   }
 });
-
-
 
 module.exports = router;

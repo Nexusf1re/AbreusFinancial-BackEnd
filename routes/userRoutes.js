@@ -33,7 +33,7 @@ router.post('/generate-reset-link', (req, res) => {
 
 
 // Rota para redefinir a senha - Agora usando o middleware para validar o token
-router.post('/reset-password', authenticateToken, (req, res) => {
+router.post('/reset-password', authenticateToken, async (req, res) => {
   const { newPassword } = req.body;
   const { id, email } = req.user;
 
@@ -41,19 +41,33 @@ router.post('/reset-password', authenticateToken, (req, res) => {
     return res.status(400).json({ message: 'Nova senha é obrigatória' });
   }
 
-  // Atualiza a senha no banco de dados
-  db.query('UPDATE users SET Password = ? WHERE Id = ? AND Email = ?', [newPassword, id, email], (err, result) => {
-    if (err) {
-      console.error('Erro ao atualizar a senha:', err);
-      return res.status(500).json({ message: 'Erro ao atualizar a senha' });
-    }
+  try {
+    // Criptografa a nova senha
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
-    }
+    // Atualiza a senha no banco de dados
+    db.query(
+      'UPDATE users SET Password = ? WHERE Id = ? AND Email = ?',
+      [hashedPassword, id, email],
+      (err, result) => {
+        if (err) {
+          console.error('Erro ao atualizar a senha:', err);
+          return res.status(500).json({ message: 'Erro ao atualizar a senha' });
+        }
 
-    res.status(200).json({ message: 'Senha redefinida com sucesso!' });
-  });
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ message: 'Usuário não encontrado' });
+        }
+
+        res.status(200).json({ message: 'Senha redefinida com sucesso!' });
+      }
+    );
+  } catch (error) {
+    console.error('Erro ao criptografar a senha:', error);
+    res.status(500).json({ message: 'Erro ao processar a redefinição de senha' });
+  }
 });
+
 
 module.exports = router;

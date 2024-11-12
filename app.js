@@ -6,7 +6,9 @@ const PORT = 3000;
 
 const allowedOrigin = process.env.FRONTEND_URL;
 
-app.use(cors());
+app.use(cors({
+    origin: allowedOrigin
+}));
 
 app.use(express.json());
 

@@ -21,20 +21,6 @@ const authenticateToken = async (req, res, next) => {
             return res.status(403).json({ message: "Token inválido ou expirado." });
         }
 
-        try {
-            const subscriptions = await stripe.subscriptions.list({
-                customer: user.stripeCustomerId,
-                status: 'active',
-            });
-
-            if (subscriptions.data.length === 0) {
-                return res.status(403).json({ message: "Acesso negado. Assinatura inativa." });
-            }
-        } catch (error) {
-            console.error("Erro ao verificar assinatura na Stripe:", error);
-            return res.status(500).json({ message: "Erro interno ao validar a assinatura." });
-        }
-
         req.user = user;
         next();
     });

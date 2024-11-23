@@ -1,5 +1,3 @@
-const mysql = require('mysql2');
-
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -11,8 +9,8 @@ const pool = mysql.createPool({
     ca: process.env.SSL_CA
   },
   waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  connectionLimit: 20, 
+  queueLimit: 0,
+  connectTimeout: 10000,
+  timeout: 10000
 });
-
-module.exports = pool;

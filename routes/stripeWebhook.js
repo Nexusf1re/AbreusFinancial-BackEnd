@@ -17,6 +17,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
   }
 
   switch (event.type) {
+    case 'invoice.payment_succeeded':
+      console.log(`Fatura pagamento sucesso: ${event.data.object.id}`);
+      break;
+    case 'invoice.payment_failed':
+      console.log(`Fatura pagamento falhado: ${event.data.object.id}`);
+      break;
     case 'customer.created':
       console.log(`Novo cliente criado: ${event.data.object.id}`);
       break;

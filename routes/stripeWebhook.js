@@ -3,17 +3,12 @@ const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-// Defina o middleware express.raw() diretamente na rota do webhook
 router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const sig = req.headers['stripe-signature'];
-  console.log("### Nova requisição recebida no /webhook");
-  console.log("Cabeçalhos:", req.headers);
-  console.log("Corpo (raw):", req.body.toString()); // Corpo no formato raw (não parseado)
 
   let event;
 
   try {
-    // Certifique-se de que o corpo raw está sendo passado corretamente
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     console.log("Evento construído com sucesso:", event);
   } catch (err) {
@@ -24,7 +19,6 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
   switch (event.type) {
     case 'customer.created':
       console.log(`Novo cliente criado: ${event.data.object.id}`);
-      // Aqui você pode adicionar lógica para lidar com o cliente criado
       break;
     case 'customer.subscription.created':
       console.log(`Nova assinatura criada: ${event.data.object.id}`);

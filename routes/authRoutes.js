@@ -2,11 +2,12 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const pool = require('../config/db');
+const db = require('../config/db');
 const getLocalTimestamp = require('../config/timestamp');
 
 const router = express.Router();
 
+const pool = db(false); // Usando a versão com promessas
 
 // Rota de cadastro de usuário
 router.post("/register", async (req, res) => {

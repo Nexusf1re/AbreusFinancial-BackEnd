@@ -1,7 +1,9 @@
 const express = require('express');
-const pool = require('../config/db');
+const db = require('../config/db');
 const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
+
+const pool = db(false); 
 
 // Rota para listar as categorias
 router.get("/list", authenticateToken, (req, res) => { 

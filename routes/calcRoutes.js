@@ -1,7 +1,10 @@
 const express = require('express');
-const pool = require('../config/db');
+const db = require('../config/db');
 const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
+
+const pool = db(false); 
+
 
 // Rota para buscar lançamentos da Entradas
 router.get("/Inflows", authenticateToken, (req, res) => {

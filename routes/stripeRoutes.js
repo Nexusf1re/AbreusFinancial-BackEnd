@@ -1,100 +1,102 @@
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const pool = require('../config/db');
+const db = require('../config/db');
 const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
-// Rota para verificar o status de uma assinatura
-router.get('/check-subscription/:userId', (req, res) => {
-  const { userId } = req.params;
+const pool = db(true); // Conexão com pool de promessas
 
-  if (!userId) {
-    return res.status(400).json({ error: 'userId é obrigatório.' });
+// Rota para verificar o status de uma assinatura
+router.get('/check-subscription', authenticateToken, async (req, res) => {
+  const { id, email } = req.user; // Pegando userId e email do JWT
+
+  if (!id || !email) {
+    console.log('userId e email são obrigatórios.');
+    return res.status(400).json({ error: 'userId e email são obrigatórios.' });
   }
 
-  // Buscar a assinatura no banco de dados
-  const query = 'SELECT * FROM subscriptions WHERE UserId = ? ORDER BY SubscriptionStartDate DESC LIMIT 1';
-
-  pool.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error('Erro ao verificar status da assinatura:', err);
-      return res.status(500).json({ error: 'Erro ao verificar status da assinatura.' });
-    }
+  try {
+    const [results] = await pool.query(
+      'SELECT * FROM subscriptions WHERE UserId = ? ORDER BY SubscriptionStartDate DESC LIMIT 1',
+      [id]
+    );
 
     if (results.length === 0) {
-      return res.status(404).json({ error: 'Assinatura não encontrada.' });
+      return res.status(404).json({ message: 'Nenhuma assinatura ativa encontrada.' });
     }
 
-    const subscription = results[0]; 
-    res.status(200).json({
+    const subscription = results[0];
+    return res.status(200).json({
       subscriptionStatus: subscription.SubscriptionStatus,
       subscriptionPlan: subscription.SubscriptionPlan,
       subscriptionStartDate: subscription.SubscriptionStartDate,
       subscriptionEndDate: subscription.SubscriptionEndDate,
     });
-  });
+  } catch (err) {
+    console.error('Erro ao verificar status da assinatura:', err);
+    return res.status(500).json({ error: 'Erro ao verificar status da assinatura.' });
+  }
 });
 
+// Rota para criar um cliente Stripe
+router.post('/create-stripe-customer', authenticateToken, async (req, res) => {
+  const { email, id } = req.user;
 
-router.post("/payment", authenticateToken, async (req, res) => {
-  const { email } = req.body;
-  const { id: userId } = req.user; // Acessando o userId do token
+  try {
+    const [result] = await pool.query('SELECT StripeCustomerId FROM subscriptions WHERE Email = ?', [email]);
 
-  // Verifique se o usuário existe no banco de dados
-  const getUserQuery = 'SELECT * FROM users WHERE Id = ?';
-  pool.query(getUserQuery, [userId], async (err, userResults) => {
-    if (err) {
-      console.error("Erro ao verificar o usuário:", err);
-      return res.status(500).json({ message: "Erro ao processar o pagamento." });
+    if (result[0]?.StripeCustomerId) {
+      return res.status(200).json({ message: 'Cliente já existe no Stripe', customerId: result[0].StripeCustomerId });
     }
 
-    if (userResults.length === 0) {
-      return res.status(400).json({ message: "Usuário não encontrado." });
-    }
+    const customer = await stripe.customers.create({ email });
 
-    try {
-      // Criar o cliente na Stripe
-      const stripeCustomer = await stripe.customers.create({
-        email: email,
-        description: `Customer for ${email}`,
-      });
+    await pool.query(
+      'INSERT INTO subscriptions (UserId, Email, StripeCustomerId, SubscriptionPlan, SubscriptionStatus) VALUES (?, ?, ?, ?, ?)',
+      [id, email, customer.id, 'trial', 'trial']
+    );
 
-      // Criar a assinatura com o plano
-      const subscription = await stripe.subscriptions.create({
-        customer: stripeCustomer.id,
-        items: [{ plan: process.env.STRIPE_PLAN_ID }],  // Use o ID do seu plano da Stripe
-        trial_period_days: 3, // Caso tenha um período de teste
-      });
+    await pool.query('UPDATE users SET StripeCustomerId = ? WHERE email = ?', [customer.id, email]);
 
-      // Inserir dados na tabela subscriptions
-      const subscriptionInsertQuery = `
-        INSERT INTO subscriptions (UserId, Email, StripeCustomerId, StripeSubscriptionId, SubscriptionPlan, SubscriptionStatus, TrialStartDate, SubscriptionStartDate)
-        VALUES (?, ?, ?, ?, 'trial', 'trial', NOW(), NOW())
-      `;
-      pool.query(subscriptionInsertQuery, [
-        userId, // Usando o userId extraído do token
-        email,
-        stripeCustomer.id,
-        subscription.id,
-      ], (err, result) => {
-        if (err) {
-          console.error("Erro ao inserir dados da assinatura:", err);
-          return res.status(500).json({ message: "Erro ao registrar a assinatura." });
-        }
-
-        res.status(200).json({
-          message: "Pagamento realizado com sucesso, cliente e assinatura criados!",
-          subscriptionId: subscription.id,
-        });
-      });
-
-    } catch (error) {
-      console.error("Erro ao processar o pagamento:", error);
-      res.status(500).json({ message: "Erro ao processar o pagamento." });
-    }
-  });
+    return res.status(200).json({ message: 'Cliente criado no Stripe com sucesso', customerId: customer.id });
+  } catch (error) {
+    console.error('Erro ao criar cliente no Stripe:', error);
+    return res.status(500).json({ error: 'Erro ao criar cliente no Stripe' });
+  }
 });
 
+// Rota para criar uma sessão de checkout
+router.post('/create-checkout-session', authenticateToken, async (req, res) => {
+  const { customerId } = req.body;
 
+  try {
+    const productId = 'prod_RH1DyFkPbpBYCL';
+    const prices = await stripe.prices.list({ product: productId });
+
+    if (prices.data.length === 0) {
+      return res.status(400).send('Nenhum preço encontrado para o produto.');
+    }
+
+    const priceId = prices.data[0].id;
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: 'subscription',
+      success_url: `${process.env.FRONTEND_URL}/home`,
+      cancel_url: `${process.env.FRONTEND_URL}/payment-failed`,
+      customer: customerId,
+      subscription_data: {
+        trial_period_days: 3,
+        metadata: { userId: req.user.id },
+      },
+    });
+
+    res.status(200).json({ url: session.url });
+  } catch (error) {
+    console.error('Erro ao criar sessão de checkout:', error);
+    res.status(500).send('Erro ao criar sessão de checkout');
+  }
+});
 
 module.exports = router;

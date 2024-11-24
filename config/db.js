@@ -14,7 +14,6 @@ const pool = mysql.createPool({
   connectionLimit: 20, 
   queueLimit: 0,
   connectTimeout: 10000,
-  timeout: 10000
 });
 
 module.exports = pool;

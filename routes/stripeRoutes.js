@@ -51,13 +51,6 @@ router.post('/create-stripe-customer', authenticateToken, async (req, res) => {
 
     const customer = await stripe.customers.create({ email });
 
-    await pool.query(
-      'INSERT INTO subscriptions (UserId, Email, StripeCustomerId, SubscriptionPlan, SubscriptionStatus) VALUES (?, ?, ?, ?, ?)',
-      [id, email, customer.id, 'trial', 'trial']
-    );
-
-    await pool.query('UPDATE users SET StripeCustomerId = ? WHERE email = ?', [customer.id, email]);
-
     return res.status(200).json({ message: 'Cliente criado no Stripe com sucesso', customerId: customer.id });
   } catch (error) {
     console.error('Erro ao criar cliente no Stripe:', error);

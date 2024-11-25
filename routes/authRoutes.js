@@ -1,13 +1,14 @@
-//routes/authRoutes.js
+// Rota de autenticação
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const getLocalTimestamp = require('../config/timestamp');
 
+const pool = db(false);
+
 const router = express.Router();
 
-const pool = db(false); // Usando a versão com promessas
 
 // Rota de cadastro de usuário
 router.post("/register", async (req, res) => {

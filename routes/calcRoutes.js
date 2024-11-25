@@ -1,9 +1,9 @@
 const express = require('express');
-const db = require('../config/db');
+const db= require('../config/db');
 const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
-const pool = db(false); 
+const pool = db(false);
 
 
 // Rota para buscar lançamentos da Entradas

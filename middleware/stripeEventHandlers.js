@@ -1,5 +1,5 @@
 // middleware/stripeEventHandlers.js
-const pool = require('../config/db');
+const db= require('../config/db');
 
 // Manipulador para evento customer.subscription.created
 const handleSubscriptionCreated = (subscriptionCreated) => {

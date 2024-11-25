@@ -1,10 +1,11 @@
 const express = require('express');
-const db = require('../config/db');
+const db= require('../config/db');
 const getLocalTimestamp = require('../config/timestamp');
 const authenticateToken = require('../middleware/authMiddleware');
 const router = express.Router();
 
-const pool = db(false); 
+const pool = db(false);
+
 
 router.get("/financial", authenticateToken, (req, res) => {
   const UserId = req.user.id; 

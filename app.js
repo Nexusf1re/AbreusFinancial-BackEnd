@@ -9,7 +9,7 @@ const PORT = 3000;
 app.use(cors());
 
 // Definido express.raw() para o webhook do Stripe antes de express.json()
-app.use('/stripe-webhook', express.raw({ type: 'application/json' }));
+app.use('/stripe', express.raw({ type: 'application/json' }));
 
 // Middleware express.json() para as demais rotas
 app.use(express.json()); 
@@ -32,7 +32,7 @@ app.use('/calc', calcRoutes);
 app.use('/stripe', stripeRoutes);
 
 // Aplique express.raw() somente para o webhook do Stripe
-app.use('/stripe-webhook', stripeWebhook);
+app.use('/stripe', stripeWebhook);
 
 app.get('/', (request, response) => {
     response.send("Hello World");

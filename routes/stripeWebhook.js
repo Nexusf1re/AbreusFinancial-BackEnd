@@ -71,84 +71,37 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             console.log('Usuário não encontrado para o StripeCustomerId.');
           }
         } else {
-          // Se a assinatura já existe, apenas atualiza os dados da assinatura existente
-          await pool.query(
-            'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, TrialUsed = ?, TrialStartDate = ? WHERE StripeSubscriptionId = ?',
-            [
-              status,
-              planName,
-              startDate,
-              endDate,
-              trialUsed ? 1 : 0,
-              trialStart ? new Date(trialStart * 1000) : null,
-              subscriptionId
-            ]
-          );
-
-          console.log('Assinatura já registrada, dados atualizados.');
+          console.log('Assinatura já registrada no banco de dados.');
         }
         break;
-
 
 
       // Evento para quando o pagamento for bem-sucedido
-      case 'invoice.payment_succeeded':
-        const invoicePaid = event.data.object;
-        const paidSubscriptionId = invoicePaid.subscription;
-        const paidCustomerId = invoicePaid.customer;
+// Evento para quando o pagamento for bem-sucedido
+case 'invoice.payment_succeeded':
+  const invoicePaid = event.data.object;
 
-        // Recupera a assinatura existente para verificar seu status
-        const [paidSubscription] = await pool.query(
-          'SELECT * FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
-          [paidSubscriptionId]
-        );
+  // Calcular a data de término (um mês após o pagamento)
+  const subscriptionPeriodEndDate = new Date(invoicePaid.created * 1000);
+  subscriptionPeriodEndDate.setMonth(subscriptionPeriodEndDate.getMonth() + 1); // Adiciona um mês
 
-        if (paidSubscription.length > 0) {
-          const subscriptionData = paidSubscription[0];
-
-          // Verifica se o período de teste foi usado (TrialUsed)
-          if (subscriptionData.TrialUsed == 1) {
-            // O pagamento foi feito após o período de teste, então muda para 'active' e 'pro'
-            const subscriptionPeriodEndDate = new Date(invoicePaid.created * 1000);
-            subscriptionPeriodEndDate.setMonth(subscriptionPeriodEndDate.getMonth() + 1); // Define o fim do período
-
-            // Atualiza a assinatura para o status 'active' após o pagamento
-            await pool.query(
-              'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
-              [
-                'active', // Atualiza o status para 'active'
-                'pro', // Define o plano como 'pro'
-                new Date(invoicePaid.created * 1000), // Data de início da assinatura
-                subscriptionPeriodEndDate, // Data de término do plano
-                new Date(invoicePaid.created * 1000), // Última data de pagamento
-                paidSubscriptionId, // Identificador da assinatura
-              ]
-            );
-            console.log('Assinatura pro definida atualizada após o pagamento do cliente.');
-          } else {
-            // Caso contrário, o cliente ainda está no período de teste, então a assinatura permanece em 'trialing'
-            const trialStartDate = new Date(invoicePaid.created * 1000);
-            const trialEndDate = new Date(trialStartDate);
-            trialEndDate.setMonth(trialEndDate.getMonth() + 1); // Define a duração do trial (1 mês)
-
-            await pool.query(
-              'UPDATE subscriptions SET  SubscriptionPlan = ?,SubscriptionStatus = ?, TrialUsed = 1, TrialStartDate = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
-              [
-                'trial',
-                'trialing', // Continua no status 'trialing'
-                trialStartDate, // Define o início do trial
-                trialStartDate, // A assinatura começa com o trial
-                trialEndDate,   // Define o final do período de trial
-                new Date(invoicePaid.created * 1000), // Última data de pagamento
-                paidSubscriptionId, // Identificador da assinatura
-              ]
-            );
-            console.log('Assinatura em trial definida, dados atualizados.');
-          }
-        } else {
-          console.log('Assinatura não encontrada para o StripeSubscriptionId:', paidSubscriptionId);
-        }
-        break;
+  // Atualiza informações de pagamento na tabela subscriptions
+  // Inclui os campos SubscriptionStartDate e SubscriptionEndDate
+  await pool.query(
+    'UPDATE subscriptions SET LastPaymentDate = ?, TrialUsed = ?, TrialStartDate = ?, SubscriptionPlan = ?, SubscriptionStatus = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ? WHERE StripeCustomerId = ?',
+    [
+      new Date(invoicePaid.created * 1000), // Data do pagamento
+      true, // Define TrialUsed como true após o pagamento
+      new Date(invoicePaid.created * 1000), // Define o TrialStartDate como a data do pagamento
+      'pro', // Define o plano como "pro"
+      'active',
+      new Date(invoicePaid.created * 1000), // Define a SubscriptionStartDate como a data do pagamento
+      subscriptionPeriodEndDate, // Define a SubscriptionEndDate para um mês após o pagamento
+      invoicePaid.customer, // ID do cliente
+    ]
+  );
+  console.log('Informações de pagamento e assinatura atualizadas para o primeiro pagamento no banco de dados.');
+  break;
 
 
 

@@ -88,11 +88,6 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
         trial_period_days: 2,
         metadata: { userId },
       },
-      discounts: [
-        {
-          coupon: 'zB19kvE2', 
-        }
-      ],
     });
 
     res.status(200).json({ url: session.url });

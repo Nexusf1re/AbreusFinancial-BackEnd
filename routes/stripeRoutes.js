@@ -1,3 +1,4 @@
+//routes/stripeRoutes.js
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const db = require('../config/db');
@@ -11,11 +12,13 @@ router.post('/create-stripe-customer', authenticateToken, async (req, res) => {
   const { email, id: userId } = req.user;
 
   try {
+    // Verifica se o usuário já tem um cliente Stripe associado
     const [existingCustomer] = await pool.query(
-      'SELECT StripeCustomerId FROM subscriptions WHERE Email = ? LIMIT 1',
-      [email]
+      'SELECT StripeCustomerId FROM subscriptions WHERE UserId = ? LIMIT 1',
+      [userId]
     );
 
+    // Se o cliente já existir na tabela subscriptions, retorna os dados
     if (existingCustomer.length > 0 && existingCustomer[0].StripeCustomerId) {
       return res.status(200).json({
         message: 'Cliente já existe no Stripe',
@@ -23,14 +26,22 @@ router.post('/create-stripe-customer', authenticateToken, async (req, res) => {
       });
     }
 
+    // Cria um novo cliente no Stripe
     const customer = await stripe.customers.create({ email });
 
-    // Relaciona o cliente ao usuário no banco de dados
+    // Cria a inscrição do cliente na tabela subscriptions
     await pool.query(
-      'INSERT INTO subscriptions (UserId, Email, StripeCustomerId, SubscriptionPlan, SubscriptionStatus) VALUES (?, ?, ?, ?, ?)',
-      [userId, email, customer.id, 'trial', 'trialing']
+      'INSERT INTO subscriptions (UserId, Email, StripeCustomerId, SubscriptionStatus) VALUES (?, ?, ?, ?)',
+      [userId, email, customer.id, 'inactive'] // Define status inicial como 'inactive'
     );
 
+    // Atualiza o StripeCustomerId na tabela users
+    await pool.query(
+      'UPDATE users SET StripeCustomerId = ? WHERE id = ?',
+      [customer.id, userId]
+    );
+
+    // Retorna o ID do cliente criado no Stripe
     return res.status(200).json({
       message: 'Cliente criado no Stripe com sucesso',
       customerId: customer.id,
@@ -57,7 +68,7 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Cliente não encontrado no Stripe.' });
     }
 
-    const productId = 'prod_RH1DyFkPbpBYCL';
+    const productId = process.env.STRIPE_PRODUCT_ID;
     const prices = await stripe.prices.list({ product: productId });
 
     if (prices.data.length === 0) {
@@ -89,28 +100,27 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
 // Endpoint para verificar o status da assinatura
 router.get('/check-subscription', authenticateToken, async (req, res) => {
   try {
-      const userId = req.user.id;
+    const userId = req.user.id;
 
-      const query = `
-          SELECT SubscriptionStatus
-          FROM subscriptions
-          WHERE UserId = ?
-          ORDER BY SubscriptionStartDate DESC
-          LIMIT 1
-      `;
-      const [results] = await pool.query(query, [userId]);
+    const query = `
+      SELECT SubscriptionStatus
+      FROM subscriptions
+      WHERE UserId = ?
+      ORDER BY SubscriptionStartDate DESC
+      LIMIT 1
+    `;
+    const [results] = await pool.query(query, [userId]);
 
-      if (results.length === 0) {
-          return res.status(200).json({ error: 'Assinatura não encontrada.' });
-      }
+    if (results.length === 0) {
+      return res.status(200).json({ error: 'Assinatura não encontrada.' });
+    }
 
-      const { SubscriptionStatus } = results[0];
-      return res.status(200).json({ subscriptionStatus: SubscriptionStatus });
+    const { SubscriptionStatus } = results[0];
+    return res.status(200).json({ subscriptionStatus: SubscriptionStatus });
   } catch (error) {
-      console.error('Erro ao verificar a assinatura:', error);
-      return res.status(500).json({ error: 'Erro ao verificar a assinatura.' });
+    console.error('Erro ao verificar a assinatura:', error);
+    return res.status(500).json({ error: 'Erro ao verificar a assinatura.' });
   }
 });
-
 
 module.exports = router;

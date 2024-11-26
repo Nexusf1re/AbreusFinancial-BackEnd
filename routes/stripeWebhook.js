@@ -1,183 +1,153 @@
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const db = require('../config/db'); // Configure corretamente a conexão com o banco de dados
+const db = require('../config/db');
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 const pool = db(true);
-
 const router = express.Router();
 
-router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+// routes/stripeWebhook.js
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-    console.log('Evento construído com sucesso:', event.type);
+    console.log('Evento recebido:', event.type);
   } catch (err) {
     console.error('Erro ao validar webhook:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Lógica para tratar diferentes tipos de evento
-  switch (event.type) {
-    // Eventos de cliente
-    case 'customer.created':
-      const customerCreated = event.data.object;
-      console.log(`Novo cliente criado: ${customerCreated.id}`);
+  try {
+    switch (event.type) {
+      case 'customer.subscription.created':
+        const subscriptionCreated = event.data.object;
+        const customerId = subscriptionCreated.customer;
+        const subscriptionId = subscriptionCreated.id;
+        const planName = subscriptionCreated.items.data[0].plan.nickname; // Nome do plano
+        const startDate = new Date(subscriptionCreated.start_date * 1000); // Data de início
+        const endDate = new Date(subscriptionCreated.current_period_end * 1000); // Data de término
+        const status = subscriptionCreated.status; // Status da assinatura
+        const trialStart = subscriptionCreated.trial_start;
+        const trialEnd = subscriptionCreated.trial_end;
+        const trialUsed = trialStart && trialEnd ? true : false; // Define como true se o período de teste foi iniciado
 
-      const checkCustomerQuery = `
-        SELECT * FROM subscriptions WHERE StripeCustomerId = ?
-      `;
-      pool.query(checkCustomerQuery, [customerCreated.id], (err, results) => {
-        if (err) {
-          console.error('Erro ao verificar cliente existente:', err);
-        } else if (results.length > 0) {
-          console.log('Cliente já existe no banco de dados:', results[0]);
+        // Verificar se a assinatura já existe na tabela subscriptions
+        const [existingSubscription] = await pool.query(
+          'SELECT StripeSubscriptionId FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
+          [subscriptionId]
+        );
+
+        if (existingSubscription.length === 0) {
+          // Se a assinatura não existir, cria a nova entrada na tabela subscriptions
+          const [user] = await pool.query(
+            'SELECT id FROM users WHERE StripeCustomerId = ? LIMIT 1',
+            [customerId]
+          );
+
+          if (user.length > 0) {
+            const userId = user[0].id;
+
+            // Cria a assinatura na tabela de subscriptions
+            await pool.query(
+              'INSERT INTO subscriptions (UserId, Email, StripeCustomerId, StripeSubscriptionId, SubscriptionPlan, SubscriptionStatus, TrialUsed, TrialStartDate, SubscriptionStartDate, SubscriptionEndDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              [
+                userId,
+                subscriptionCreated.email,
+                customerId,
+                subscriptionId,
+                planName,  // Plano de assinatura
+                status,    // Status da assinatura
+                trialUsed, // Define o campo TrialUsed
+                trialStart ? new Date(trialStart * 1000) : null,  // Adiciona TrialStartDate
+                startDate,  // SubscriptionStartDate
+                endDate     // SubscriptionEndDate
+              ]
+            );
+
+            console.log('Assinatura criada e dados de cliente atualizados.');
+          } else {
+            console.log('Usuário não encontrado para o StripeCustomerId.');
+          }
         } else {
-          const createCustomerQuery = `
-            INSERT INTO subscriptions (StripeCustomerId, SubscriptionStatus, TrialStartDate)
-            VALUES (?, ?, ?)
-          `;
-          const createCustomerValues = [customerCreated.id, 'trial', new Date()];
-          pool.query(createCustomerQuery, createCustomerValues, (err, result) => {
-            if (err) {
-              console.error('Erro ao salvar o cliente criado:', err);
-            } else {
-              console.log('Cliente criado com sucesso no banco de dados:', result);
-            }
-          });
+          console.log('Assinatura já registrada no banco de dados.');
         }
-      });
-      break;
+        break;
 
-    case 'customer.updated':
-      const customerUpdated = event.data.object;
-      console.log(`Cliente atualizado: ${customerUpdated.id}`);
 
-      const updateCustomerQuery = `
-        UPDATE users
-        SET email = ?
-        WHERE StripeCustomerId = ?
-      `;
-      const updateCustomerValues = [customerUpdated.email, customerUpdated.id];
-      pool.query(updateCustomerQuery, updateCustomerValues, (err, result) => {
-        if (err) {
-          console.error('Erro ao atualizar informações do cliente:', err);
-        } else {
-          console.log('Informações do cliente atualizadas com sucesso:', result);
-        }
-      });
-      break;
+      // Evento para quando o pagamento for bem-sucedido
+// Evento para quando o pagamento for bem-sucedido
+case 'invoice.payment_succeeded':
+  const invoicePaid = event.data.object;
 
-    // Eventos de assinatura
-    case 'customer.subscription.created':
-      const subscriptionCreated = event.data.object;
-      console.log(`Nova assinatura criada: ${subscriptionCreated.id}`);
+  // Calcular a data de término (um mês após o pagamento)
+  const subscriptionPeriodEndDate = new Date(invoicePaid.created * 1000);
+  subscriptionPeriodEndDate.setMonth(subscriptionPeriodEndDate.getMonth() + 1); // Adiciona um mês
 
-      const checkSubscriptionQuery = `
-        SELECT * FROM subscriptions WHERE StripeSubscriptionId = ?
-      `;
-      pool.query(checkSubscriptionQuery, [subscriptionCreated.id], (err, results) => {
-        if (err) {
-          console.error('Erro ao verificar assinatura existente:', err);
-        } else if (results.length > 0) {
-          console.log('Assinatura já existe no banco de dados:', results[0]);
-        } else {
-          const subscriptionCreatedQuery = `
-            INSERT INTO subscriptions (StripeCustomerId, StripeSubscriptionId, SubscriptionStatus, SubscriptionStartDate)
-            VALUES (?, ?, ?, ?)
-          `;
-          const subscriptionCreatedValues = [
-            subscriptionCreated.customer,
-            subscriptionCreated.id,
-            subscriptionCreated.status,
-            new Date(subscriptionCreated.current_period_start * 1000),
-          ];
-          pool.query(subscriptionCreatedQuery, subscriptionCreatedValues, (err, result) => {
-            if (err) {
-              console.error('Erro ao salvar assinatura criada:', err);
-            } else {
-              console.log('Assinatura criada com sucesso no banco de dados:', result);
-            }
-          });
-        }
-      });
-      break;
+  // Atualiza informações de pagamento na tabela subscriptions
+  // Inclui os campos SubscriptionStartDate e SubscriptionEndDate
+  await pool.query(
+    'UPDATE subscriptions SET LastPaymentDate = ?, TrialUsed = ?, TrialStartDate = ?, SubscriptionPlan = ?, SubscriptionStatus = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ? WHERE StripeCustomerId = ?',
+    [
+      new Date(invoicePaid.created * 1000), // Data do pagamento
+      true, // Define TrialUsed como true após o pagamento
+      new Date(invoicePaid.created * 1000), // Define o TrialStartDate como a data do pagamento
+      'pro', // Define o plano como "pro"
+      'active',
+      new Date(invoicePaid.created * 1000), // Define a SubscriptionStartDate como a data do pagamento
+      subscriptionPeriodEndDate, // Define a SubscriptionEndDate para um mês após o pagamento
+      invoicePaid.customer, // ID do cliente
+    ]
+  );
+  console.log('Informações de pagamento e assinatura atualizadas para o primeiro pagamento no banco de dados.');
+  break;
 
-    case 'customer.subscription.updated':
-      const subscriptionUpdated = event.data.object;
-      console.log(`Assinatura atualizada: ${subscriptionUpdated.id}`);
 
-      const subscriptionUpdatedQuery = `
-        UPDATE subscriptions
-        SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ?
-        WHERE StripeSubscriptionId = ?
-      `;
-      const subscriptionUpdatedValues = [
-        subscriptionUpdated.status,
-        new Date(subscriptionUpdated.current_period_end * 1000),
-        new Date(subscriptionUpdated.current_period_start * 1000),
-        subscriptionUpdated.id,
-      ];
-      pool.query(subscriptionUpdatedQuery, subscriptionUpdatedValues, (err, result) => {
-        if (err) {
-          console.error('Erro ao atualizar assinatura:', err);
-        } else {
-          console.log('Assinatura atualizada com sucesso no banco de dados:', result);
-        }
-      });
-      break;
 
-    case 'customer.subscription.deleted':
-      const subscriptionDeleted = event.data.object;
-      console.log(`Assinatura cancelada: ${subscriptionDeleted.id}`);
+      case 'customer.subscription.updated':
+        const subscriptionUpdated = event.data.object;
 
-      const subscriptionDeletedQuery = `
-        UPDATE subscriptions
-        SET SubscriptionStatus = 'canceled'
-        WHERE StripeSubscriptionId = ?
-      `;
-      const subscriptionDeletedValues = [subscriptionDeleted.id];
-      pool.query(subscriptionDeletedQuery, subscriptionDeletedValues, (err, result) => {
-        if (err) {
-          console.error('Erro ao cancelar assinatura:', err);
-        } else {
-          console.log('Assinatura cancelada com sucesso no banco de dados:', result);
-        }
-      });
-      break;
+        // Atualiza os dados da assinatura na tabela de subscriptions
+        await pool.query(
+          'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
+          [
+            subscriptionUpdated.status,
+            new Date(subscriptionUpdated.current_period_end * 1000), // Data de término da assinatura
+            new Date(subscriptionUpdated.current_period_start * 1000), // Último pagamento
+            subscriptionUpdated.id,
+          ]
+        );
+        console.log('Assinatura atualizada no banco de dados.');
+        break;
 
-    // Eventos de pagamento de fatura
-    case 'invoice.payment_succeeded':
-      const paymentSucceeded = event.data.object;
-      console.log(`Pagamento de fatura bem-sucedido: ${paymentSucceeded.id}`);
+      case 'checkout.session.completed':
+        const session = event.data.object;
+        const sessionSubscriptionId = session.subscription;
+        const sessionCustomerId = session.customer;
+        const sessionPlanName = session.metadata.plan; // O nome do plano pode estar no metadata ou em outro lugar
 
-      const updatePaymentQuery = `
-        UPDATE subscriptions
-        SET SubscriptionStatus = 'active', LastPaymentDate = ?
-        WHERE StripeSubscriptionId = ?
-      `;
-      const updatePaymentValues = [new Date(), paymentSucceeded.subscription];
-      pool.query(updatePaymentQuery, updatePaymentValues, (err, result) => {
-        if (err) {
-          console.error('Erro ao atualizar assinatura após pagamento:', err);
-        } else {
-          console.log('Assinatura atualizada após pagamento bem-sucedido:', result);
-        }
-      });
-      break;
+        // Atualiza a assinatura com os dados do checkout
+        await pool.query(
+          'UPDATE subscriptions SET StripeSubscriptionId = ?, SubscriptionPlan = ? WHERE StripeCustomerId = ?',
+          [
+            sessionSubscriptionId,
+            sessionPlanName,
+            sessionCustomerId,
+          ]
+        );
+        console.log('Assinatura atualizada com os dados do checkout.');
+        break;
 
-    case 'invoice.payment_failed':
-      const paymentFailed = event.data.object;
-      console.log(`Falha no pagamento da fatura: ${paymentFailed.id}`);
-      break;
+      default:
+        console.log(`Evento ${event.type} não tratado.`);
+    }
 
-    default:
-      console.log(`Evento não tratado: ${event.type}`);
+    res.status(200).send();
+  } catch (error) {
+    console.error('Erro ao processar evento do webhook:', error);
+    res.status(500).send('Erro ao processar webhook.');
   }
-
-  res.status(200).send();
 });
 
 module.exports = router;

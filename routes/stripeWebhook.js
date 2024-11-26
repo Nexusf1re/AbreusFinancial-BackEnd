@@ -71,9 +71,24 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             console.log('Usuário não encontrado para o StripeCustomerId.');
           }
         } else {
-          console.log('Assinatura já registrada no banco de dados.');
+          // Se a assinatura já existe, apenas atualiza os dados da assinatura existente
+          await pool.query(
+            'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, TrialUsed = ?, TrialStartDate = ? WHERE StripeSubscriptionId = ?',
+            [
+              status,
+              planName,
+              startDate,
+              endDate,
+              trialUsed ? 1 : 0,
+              trialStart ? new Date(trialStart * 1000) : null,
+              subscriptionId
+            ]
+          );
+
+          console.log('Assinatura já registrada, dados atualizados.');
         }
         break;
+
 
 
       // Evento para quando o pagamento for bem-sucedido

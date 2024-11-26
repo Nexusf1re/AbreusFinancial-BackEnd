@@ -21,6 +21,7 @@ const transactionsRoutes = require('./routes/transactionsRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const calcRoutes = require('./routes/calcRoutes');
 const stripeWebhook = require('./routes/stripeWebhook');
+const stripeRoutes = require('./routes/stripeRoutes');
 
 // Aplicando middlewares e rotas
 app.use('/auth', authRoutes);
@@ -28,6 +29,7 @@ app.use('/user', userRoutes);
 app.use('/transactions', transactionsRoutes);
 app.use('/category', categoryRoutes);
 app.use('/calc', calcRoutes);
+app.use('/stripe', stripeRoutes);
 
 // Aplique express.raw() somente para o webhook do Stripe
 app.use('/stripe', stripeWebhook);

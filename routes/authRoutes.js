@@ -2,8 +2,10 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const pool = require('../config/db');
+const db = require('../config/db');
 const getLocalTimestamp = require('../config/timestamp');
+
+const pool = db(false);
 
 const router = express.Router();
 

@@ -35,8 +35,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
         // Verificar se a assinatura já existe na tabela subscriptions
         const [existingSubscription] = await pool.query(
-          'SELECT StripeSubscriptionId FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
-          [subscriptionId]
+          'SELECT StripeSubscriptionId FROM subscriptions WHERE StripeCustomerId = ? AND StripeSubscriptionId = ? LIMIT 1',
+          [customerId, subscriptionId] // Verifica tanto o StripeCustomerId quanto o StripeSubscriptionId
         );
 
         if (existingSubscription.length === 0) {
@@ -73,7 +73,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         } else {
           // Se a assinatura já existe, apenas atualiza os dados da assinatura existente
           await pool.query(
-            'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, TrialUsed = ?, TrialStartDate = ? WHERE StripeSubscriptionId = ?',
+            'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, TrialUsed = ?, TrialStartDate = ? WHERE StripeSubscriptionId = ? AND StripeCustomerId = ?',
             [
               status,
               planName,
@@ -81,72 +81,74 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
               endDate,
               trialUsed ? 1 : 0,
               trialStart ? new Date(trialStart * 1000) : null,
-              subscriptionId
+              subscriptionId,
+              customerId  // Verifica se o StripeCustomerId corresponde
             ]
           );
 
           console.log('Assinatura já registrada, dados atualizados.');
         }
+
         break;
 
-     // Evento para quando o pagamento for bem-sucedido
-     case 'invoice.payment_succeeded':
-      const invoicePaid = event.data.object;
-      const paidSubscriptionId = invoicePaid.subscription;
-      const paidCustomerId = invoicePaid.customer;
+      // Evento para quando o pagamento for bem-sucedido
+      case 'invoice.payment_succeeded':
+        const invoicePaid = event.data.object;
+        const paidSubscriptionId = invoicePaid.subscription;
+        const paidCustomerId = invoicePaid.customer;
 
-      // Recupera a assinatura existente para verificar seu status
-      const [paidSubscription] = await pool.query(
-        'SELECT * FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
-        [paidSubscriptionId]
-      );
+        // Recupera a assinatura existente para verificar seu status
+        const [paidSubscription] = await pool.query(
+          'SELECT * FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
+          [paidSubscriptionId]
+        );
 
-      if (paidSubscription.length > 0) {
-        const subscriptionData = paidSubscription[0];
+        if (paidSubscription.length > 0) {
+          const subscriptionData = paidSubscription[0];
 
-        // Verifica se o período de teste foi usado (TrialUsed)
-        if (subscriptionData.TrialUsed == 1) {
-          // O pagamento foi feito após o período de teste, então muda para 'active' e 'pro'
-          const subscriptionPeriodEndDate = new Date(invoicePaid.created * 1000);
-          subscriptionPeriodEndDate.setMonth(subscriptionPeriodEndDate.getMonth() + 1); // Define o fim do período
+          // Verifica se o período de teste foi usado (TrialUsed)
+          if (subscriptionData.TrialUsed == 1) {
+            // O pagamento foi feito após o período de teste, então muda para 'active' e 'pro'
+            const subscriptionPeriodEndDate = new Date(invoicePaid.created * 1000);
+            subscriptionPeriodEndDate.setMonth(subscriptionPeriodEndDate.getMonth() + 1); // Define o fim do período
 
-          // Atualiza a assinatura para o status 'active' após o pagamento
-          await pool.query(
-            'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
-            [
-              'active', // Atualiza o status para 'active'
-              'pro', // Define o plano como 'pro'
-              new Date(invoicePaid.created * 1000), // Data de início da assinatura
-              subscriptionPeriodEndDate, // Data de término do plano
-              new Date(invoicePaid.created * 1000), // Última data de pagamento
-              paidSubscriptionId, // Identificador da assinatura
-            ]
-          );
-          console.log('Assinatura pro definida atualizada após o pagamento do cliente.');
+            // Atualiza a assinatura para o status 'active' após o pagamento
+            await pool.query(
+              'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
+              [
+                'active', // Atualiza o status para 'active'
+                'pro', // Define o plano como 'pro'
+                new Date(invoicePaid.created * 1000), // Data de início da assinatura
+                subscriptionPeriodEndDate, // Data de término do plano
+                new Date(invoicePaid.created * 1000), // Última data de pagamento
+                paidSubscriptionId, // Identificador da assinatura
+              ]
+            );
+            console.log('Assinatura pro definida atualizada após o pagamento do cliente.');
+          } else {
+            // Caso contrário, o cliente ainda está no período de teste, então a assinatura permanece em 'trialing'
+            const trialStartDate = new Date(invoicePaid.created * 1000);
+            const trialEndDate = new Date(trialStartDate);
+            trialEndDate.setMonth(trialEndDate.getMonth() + 1); // Define a duração do trial (1 mês)
+
+            await pool.query(
+              'UPDATE subscriptions SET  SubscriptionPlan = ?,SubscriptionStatus = ?, TrialUsed = 1, TrialStartDate = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
+              [
+                'trial',
+                'trialing', // Continua no status 'trialing'
+                trialStartDate, // Define o início do trial
+                trialStartDate, // A assinatura começa com o trial
+                trialEndDate,   // Define o final do período de trial
+                new Date(invoicePaid.created * 1000), // Última data de pagamento
+                paidSubscriptionId, // Identificador da assinatura
+              ]
+            );
+            console.log('Assinatura em trial definida, dados atualizados.');
+          }
         } else {
-          // Caso contrário, o cliente ainda está no período de teste, então a assinatura permanece em 'trialing'
-          const trialStartDate = new Date(invoicePaid.created * 1000);
-          const trialEndDate = new Date(trialStartDate);
-          trialEndDate.setMonth(trialEndDate.getMonth() + 1); // Define a duração do trial (1 mês)
-
-          await pool.query(
-            'UPDATE subscriptions SET  SubscriptionPlan = ?,SubscriptionStatus = ?, TrialUsed = 1, TrialStartDate = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
-            [
-              'trial',
-              'trialing', // Continua no status 'trialing'
-              trialStartDate, // Define o início do trial
-              trialStartDate, // A assinatura começa com o trial
-              trialEndDate,   // Define o final do período de trial
-              new Date(invoicePaid.created * 1000), // Última data de pagamento
-              paidSubscriptionId, // Identificador da assinatura
-            ]
-          );
-          console.log('Assinatura em trial definida, dados atualizados.');
+          console.log('Assinatura não encontrada para o StripeSubscriptionId:', paidSubscriptionId);
         }
-      } else {
-        console.log('Assinatura não encontrada para o StripeSubscriptionId:', paidSubscriptionId);
-      }
-      break;
+        break;
 
 
       case 'customer.subscription.updated':

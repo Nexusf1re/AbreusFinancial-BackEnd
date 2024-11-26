@@ -123,35 +123,4 @@ router.get('/check-subscription', authenticateToken, async (req, res) => {
   }
 });
 
-// Rota para criar um link para o Customer Portal
-router.post('/create-portal-session', authenticateToken, async (req, res) => {
-  try {
-    const { id: userId } = req.user;
-
-    // Recupera o StripeCustomerId do banco de dados
-    const [customerResult] = await pool.query(
-      'SELECT StripeCustomerId FROM subscriptions WHERE UserId = ? LIMIT 1',
-      [userId]
-    );
-
-    const customerId = customerResult[0]?.StripeCustomerId;
-
-    if (!customerId) {
-      return res.status(400).json({ error: 'Cliente não encontrado no Stripe.' });
-    }
-
-    // Criação da sessão no Customer Portal
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${process.env.FRONTEND_URL}/config`, // Redireciona para a página de configurações ao sair do portal
-    });
-
-    // Retorna a URL da sessão
-    res.status(200).json({ url: session.url });
-  } catch (error) {
-    console.error('Erro ao criar sessão do Customer Portal:', error);
-    res.status(500).json({ error: 'Erro ao criar sessão do Customer Portal.' });
-  }
-});
-
 module.exports = router;

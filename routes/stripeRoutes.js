@@ -85,7 +85,7 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
       cancel_url: `${process.env.FRONTEND_URL}/payment-failed`,
       customer: customerId,
       subscription_data: {
-        trial_period_days: 3,
+        trial_period_days: 2,
         metadata: { userId },
       },
     });

@@ -58,15 +58,19 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
 
   try {
     const [customerResult] = await pool.query(
-      'SELECT StripeCustomerId FROM subscriptions WHERE UserId = ? LIMIT 1',
+      'SELECT StripeCustomerId, TrialUsed FROM subscriptions WHERE UserId = ? LIMIT 1',
       [userId]
     );
 
-    const customerId = customerResult[0]?.StripeCustomerId;
+    const customer = customerResult[0];
+    const customerId = customer?.StripeCustomerId;
 
     if (!customerId) {
       return res.status(400).json({ error: 'Cliente não encontrado no Stripe.' });
     }
+
+    // Verifica se o cliente já usou o trial
+    const trialUsed = customer.TrialUsed;
 
     const productId = process.env.STRIPE_PRODUCT_ID;
     const prices = await stripe.prices.list({ product: productId });
@@ -77,18 +81,25 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
 
     const priceId = prices.data[0].id;
 
-    const session = await stripe.checkout.sessions.create({
+    // Cria a sessão de checkout
+    const sessionData = {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
       success_url: `${process.env.FRONTEND_URL}/home`,
-      cancel_url: `${process.env.FRONTEND_URL}/payment-failed`,
+      cancel_url: `${process.env.FRONTEND_URL}/payment`,
       customer: customerId,
       subscription_data: {
-        trial_period_days: 2,
         metadata: { userId },
       },
-    });
+    };
+
+    // Se o cliente não usou o trial, adiciona o período de teste
+    if (!trialUsed) {
+      sessionData.subscription_data.trial_period_days = 2;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionData);
 
     res.status(200).json({ url: session.url });
   } catch (error) {
@@ -96,6 +107,7 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
     res.status(500).send('Erro ao criar sessão de checkout');
   }
 });
+
 
 // Endpoint para verificar o status da assinatura
 router.get('/check-subscription', authenticateToken, async (req, res) => {

@@ -33,14 +33,14 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const trialEnd = subscriptionCreated.trial_end;
         const trialUsed = trialStart && trialEnd ? true : false; // Define como true se o período de teste foi iniciado
 
-        // Verificar se a assinatura já existe na tabela subscriptions
-        const [existingSubscription] = await pool.query(
-          'SELECT StripeSubscriptionId FROM subscriptions WHERE StripeCustomerId = ? AND StripeSubscriptionId = ? LIMIT 1',
-          [customerId, subscriptionId] // Verifica tanto o StripeCustomerId quanto o StripeSubscriptionId
+        // Verificar se já existe um cliente com o StripeCustomerId
+        const [existingCustomer] = await pool.query(
+          'SELECT StripeCustomerId FROM subscriptions WHERE StripeCustomerId = ? LIMIT 1',
+          [customerId] // Verifica apenas o StripeCustomerId
         );
 
-        if (existingSubscription.length === 0) {
-          // Se a assinatura não existir, cria a nova entrada na tabela subscriptions
+        if (existingCustomer.length === 0) {
+          // Se não houver um cliente com esse StripeCustomerId, faz o INSERT
           const [user] = await pool.query(
             'SELECT id FROM users WHERE StripeCustomerId = ? LIMIT 1',
             [customerId]
@@ -70,9 +70,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           } else {
             console.log('Usuário não encontrado para o StripeCustomerId.');
           }
+        } else {
+          console.log('Cliente já existe, não será criada uma nova assinatura.');
         }
 
         break;
+
 
       // Evento para quando o pagamento for bem-sucedido
       case 'invoice.payment_succeeded':

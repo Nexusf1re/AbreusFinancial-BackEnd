@@ -66,27 +66,10 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
               ]
             );
 
-            console.log('Assinatura criada e dados de cliente atualizados.');
+            console.log('Assinatura criada e dados de cliente atualizados. CUSTOMER.CREATED INSERT');
           } else {
             console.log('Usuário não encontrado para o StripeCustomerId.');
           }
-        } else {
-          // Se a assinatura já existe, apenas atualiza os dados da assinatura existente
-          await pool.query(
-            'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionPlan = ?, SubscriptionStartDate = ?, SubscriptionEndDate = ?, TrialUsed = ?, TrialStartDate = ? WHERE StripeSubscriptionId = ? AND StripeCustomerId = ?',
-            [
-              status,
-              planName,
-              startDate,
-              endDate,
-              trialUsed ? 1 : 0,
-              trialStart ? new Date(trialStart * 1000) : null,
-              subscriptionId,
-              customerId  // Verifica se o StripeCustomerId corresponde
-            ]
-          );
-
-          console.log('Assinatura já registrada, dados atualizados.');
         }
 
         break;
@@ -124,7 +107,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 paidSubscriptionId, // Identificador da assinatura
               ]
             );
-            console.log('Assinatura pro definida atualizada após o pagamento do cliente.');
+            console.log('Assinatura PRO definida atualizada após o pagamento do cliente. UPDATE');
           } else {
             // Caso contrário, o cliente ainda está no período de teste, então a assinatura permanece em 'trialing'
             const trialStartDate = new Date(invoicePaid.created * 1000);
@@ -143,7 +126,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 paidSubscriptionId, // Identificador da assinatura
               ]
             );
-            console.log('Assinatura em trial definida, dados atualizados.');
+            console.log('Assinatura em TRIAL definida, dados atualizados. UPDATE');
           }
         } else {
           console.log('Assinatura não encontrada para o StripeSubscriptionId:', paidSubscriptionId);
@@ -164,14 +147,14 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             subscriptionUpdated.id,
           ]
         );
-        console.log('Assinatura atualizada no banco de dados.');
+        console.log('Assinatura atualizada no banco de dados. CUSTOMER.SUBSCRIPTION.UPDATED');
         break;
 
       case 'checkout.session.completed':
         const session = event.data.object;
         const sessionSubscriptionId = session.subscription;
         const sessionCustomerId = session.customer;
-        const sessionPlanName = session.metadata.plan; // O nome do plano pode estar no metadata ou em outro lugar
+        const sessionPlanName = session.metadata.plan;
 
         // Atualiza a assinatura com os dados do checkout
         await pool.query(
@@ -182,7 +165,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             sessionCustomerId,
           ]
         );
-        console.log('Assinatura atualizada com os dados do checkout.');
+        console.log('Assinatura atualizada com os dados do checkout. CHECKOUT.SESSION.COMPLETED');
         break;
 
       default:

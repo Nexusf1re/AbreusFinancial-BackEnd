@@ -1,13 +1,14 @@
 const express = require('express');
 const db= require('../config/db');
 const authenticateToken = require('../middleware/authMiddleware');
+const { verifySubscription } = require('../middleware/subscriptionMiddleware');
 const router = express.Router();
 
 const pool = db(false);
 
 
 // Rota para listar as categorias
-router.get("/list", authenticateToken, (req, res) => { 
+router.get("/list", authenticateToken, verifySubscription, (req, res) => { 
     const UserId = req.user.id; 
 
     if (!UserId) {
@@ -26,7 +27,7 @@ router.get("/list", authenticateToken, (req, res) => {
 });
 
 // Rota para cadastrar as categorias
-router.post("/register", authenticateToken, (req, res) => { 
+router.post("/register", authenticateToken, verifySubscription, (req, res) => { 
     const UserId = req.user.id; 
     const { Category, Type } = req.body;
 
@@ -45,7 +46,7 @@ router.post("/register", authenticateToken, (req, res) => {
 });
 
 // Rota para atualizar as categorias
-router.put("/update/:Id", authenticateToken, (req, res) => { 
+router.put("/update/:Id", authenticateToken, verifySubscription, (req, res) => { 
     const { Id } = req.params;
     const { Category, Type } = req.body;
     const query = 'UPDATE categories SET Category = ?, Type = ? WHERE Id = ? AND UserId = ?';
@@ -62,7 +63,7 @@ router.put("/update/:Id", authenticateToken, (req, res) => {
 
 
 // Rota para excluir as categorias
-router.delete("/delete/:Id", authenticateToken, (req, res) => { 
+router.delete("/delete/:Id", authenticateToken, verifySubscription, (req, res) => { 
     const { Id } = req.params;
     const UserId = req.user.id; 
 

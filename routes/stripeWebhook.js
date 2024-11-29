@@ -1,6 +1,7 @@
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const db = require('../config/db');
+const { subscriptionCache } = require('../middleware/subscriptionMiddleware');
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 const pool = db(true);
@@ -48,6 +49,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
           if (user.length > 0) {
             const userId = user[0].id;
+            subscriptionCache.delete(userId);
+            console.log(`[TRIGGER: customer.subscription.created] Cache removido para o usuário ID: ${userId}`);
 
             // Cria a assinatura na tabela de subscriptions
             await pool.query(
@@ -91,6 +94,14 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
         if (paidSubscription.length > 0) {
           const subscriptionData = paidSubscription[0];
+          const [user] = await pool.query(
+            'SELECT UserId FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
+            [paidSubscriptionId]
+          );
+          if (user.length > 0) {
+            subscriptionCache.delete(user[0].UserId);
+            console.log(`[TRIGGER: invoice.payment_succeeded] Cache removido para o usuário ID: ${user[0].UserId}`);
+          }
 
           // Verifica se o período de teste foi usado (TrialUsed)
           if (subscriptionData.TrialUsed == 1) {
@@ -151,6 +162,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           ]
         );
         console.log('Assinatura atualizada no banco de dados. CUSTOMER.SUBSCRIPTION.UPDATED');
+
+        // Busca o UserId para invalidar o cache
+        const [updatedUser] = await pool.query(
+          'SELECT UserId FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
+          [subscriptionUpdated.id]
+        );
+        if (updatedUser.length > 0) {
+          subscriptionCache.delete(updatedUser[0].UserId);
+          console.log(`[TRIGGER: customer.subscription.updated] Cache removido para o usuário ID: ${updatedUser[0].UserId}`);
+        }
         break;
 
       case 'checkout.session.completed':
@@ -169,6 +190,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           ]
         );
         console.log('Assinatura atualizada com os dados do checkout. CHECKOUT.SESSION.COMPLETED');
+
+        // Busca o UserId para invalidar o cache
+        const [checkoutUser] = await pool.query(
+          'SELECT UserId FROM subscriptions WHERE StripeCustomerId = ? LIMIT 1',
+          [session.customer]
+        );
+        if (checkoutUser.length > 0) {
+          subscriptionCache.delete(checkoutUser[0].UserId);
+          console.log(`[TRIGGER: checkout.session.completed] Cache removido para o usuário ID: ${checkoutUser[0].UserId}`);
+        }
         break;
 
       default:

@@ -1,13 +1,14 @@
 const express = require('express');
 const db= require('../config/db');
 const authenticateToken = require('../middleware/authMiddleware');
+const verifySubscription = require('../middleware/subscriptionMiddleware');
 const router = express.Router();
 
 const pool = db(false);
 
 
 // Rota para buscar lançamentos da Entradas
-router.get("/Inflows", authenticateToken, (req, res) => {
+router.get("/Inflows", authenticateToken, verifySubscription, (req, res) => {
     const UserId = req.user.id;
 
     if (!UserId) {
@@ -29,7 +30,7 @@ router.get("/Inflows", authenticateToken, (req, res) => {
 });
 
 // Rota para buscar lançamentos das saídas do Débito
-router.get("/OutflowsDebit", authenticateToken, (req, res) => {
+router.get("/OutflowsDebit", authenticateToken, verifySubscription, (req, res) => {
     const UserId = req.user.id;
 
     if (!UserId) {
@@ -51,7 +52,7 @@ router.get("/OutflowsDebit", authenticateToken, (req, res) => {
 });
 
 // Rota para buscar lançamentos de saídas do Crédito
-router.get("/OutflowsCredit", authenticateToken, (req, res) => {
+router.get("/OutflowsCredit", authenticateToken, verifySubscription, (req, res) => {
     const UserId = req.user.id;
 
     if (!UserId) {
@@ -73,7 +74,7 @@ router.get("/OutflowsCredit", authenticateToken, (req, res) => {
 });
 
 // Rota para buscar lançamentos das Saídas
-router.get("/Outflows", authenticateToken, (req, res) => {
+router.get("/Outflows", authenticateToken, verifySubscription, (req, res) => {
     const UserId = req.user.id;
 
     if (!UserId) {

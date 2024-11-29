@@ -2,8 +2,6 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db= require('../config/db');
-const getLocalTimestamp = require('../config/timestamp');
-
 const pool = db(false);
 
 

@@ -2,12 +2,13 @@ const express = require('express');
 const db= require('../config/db');
 const getLocalTimestamp = require('../config/timestamp');
 const authenticateToken = require('../middleware/authMiddleware');
+const { verifySubscription } = require('../middleware/subscriptionMiddleware');
 const router = express.Router();
 
 const pool = db(false);
 
 
-router.get("/financial", authenticateToken, (req, res) => {
+router.get("/financial", authenticateToken, verifySubscription, (req, res) => {
   const UserId = req.user.id; 
 
   if (!UserId) {
@@ -29,7 +30,7 @@ router.get("/financial", authenticateToken, (req, res) => {
 });
 
 // Rota para inserir as movimentações
-router.post("/insert", authenticateToken, (req, res) => {
+router.post("/insert", authenticateToken, verifySubscription, (req, res) => {
   const { Value, PaymentMethod, Type, Date: dateString, Category, Description } = req.body;
 
   if (!dateString) {
@@ -58,7 +59,7 @@ router.post("/insert", authenticateToken, (req, res) => {
 });
 
 // Rota para Atualizar as movimentações
-router.put("/update/:Id", authenticateToken, (req, res) => { 
+router.put("/update/:Id", authenticateToken, verifySubscription, (req, res) => { 
   const { Id } = req.params;
   const UserId = req.user.id; 
   const { Value, PaymentMethod, Type, Date, Category, Description } = req.body;
@@ -79,7 +80,7 @@ router.put("/update/:Id", authenticateToken, (req, res) => {
 });
 
 // Rota para Deletar as movimentações
-router.delete("/delete/:Id", authenticateToken, (req, res) => { 
+router.delete("/delete/:Id", authenticateToken, verifySubscription, (req, res) => { 
   const { Id } = req.params;
   const UserId = req.user.id; 
 

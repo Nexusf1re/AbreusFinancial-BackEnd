@@ -1,10 +1,9 @@
 const db = require('../config/db');
+const pool = db(true);
 
 // Cache usando Map
 const subscriptionCache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos em milissegundos
-
-const pool = db(false);
 
 const verifySubscription = async (req, res, next) => {
     const userId = req.user.id;
@@ -30,19 +29,19 @@ const verifySubscription = async (req, res, next) => {
     `;
 
     try {
-        const [subscription] = await pool.query(query, [userId]);
+        const [rows] = await pool.query(query, [userId]);
 
         // Armazena no cache
-        if (subscription && subscription.length > 0) {
+        if (rows && rows.length > 0) {
             subscriptionCache.set(userId, {
-                status: subscription[0].SubscriptionStatus,
+                status: rows[0].SubscriptionStatus,
                 timestamp: Date.now()
             });
         }
 
-        if (!subscription || subscription.length === 0 || 
-            (subscription[0].SubscriptionStatus !== 'active' && 
-             subscription[0].SubscriptionStatus !== 'trialing')) {
+        if (!rows || rows.length === 0 || 
+            (rows[0].SubscriptionStatus !== 'active' && 
+             rows[0].SubscriptionStatus !== 'trialing')) {
             return res.status(403).json({ 
                 message: "Acesso negado. Assinatura inativa ou inexistente.",
                 requiresSubscription: true

@@ -1,7 +1,7 @@
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const db = require('../config/db');
-const { subscriptionCache } = require('../middleware/subscriptionMiddleware');
+const { clearUserCache } = require('../middleware/subscriptionMiddleware');
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 const pool = db(true);
@@ -49,7 +49,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       
           if (user.length > 0) {
             const userId = user[0].id;
-            subscriptionCache.delete(userId);
+            clearUserCache(userId);
             console.log(`[TRIGGER: customer.subscription.created] Cache removido para o usuário ID: ${userId}`);
       
             // Cria a assinatura na tabela de subscriptions
@@ -82,7 +82,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       
           if (user.length > 0) {
             const userId = user[0].id;
-            subscriptionCache.delete(userId);
+            clearUserCache(userId);
             console.log(`[TRIGGER: customer.subscription.created] Cache removido para o usuário ID: ${userId}`);
       
             // Atualiza a assinatura na tabela de subscriptions
@@ -123,7 +123,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             [paidSubscriptionId]
           );
           if (user.length > 0) {
-            subscriptionCache.delete(user[0].UserId);
+            clearUserCache(user[0].UserId);
             console.log(`[TRIGGER: invoice.payment_succeeded] Cache removido para o usuário ID: ${user[0].UserId}`);
           }
 
@@ -193,7 +193,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           [subscriptionUpdated.id]
         );
         if (updatedUser.length > 0) {
-          subscriptionCache.delete(updatedUser[0].UserId);
+          clearUserCache(updatedUser[0].UserId);  
           console.log(`[TRIGGER: customer.subscription.updated] Cache removido para o usuário ID: ${updatedUser[0].UserId}`);
         }
         break;
@@ -219,7 +219,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           [subscriptionDeleted.id]
         );
         if (deletedUser.length > 0) {
-          subscriptionCache.delete(deletedUser[0].UserId);
+          clearUserCache(deletedUser[0].UserId);
           console.log(`[TRIGGER: customer.subscription.deleted] Cache removido para o usuário ID: ${deletedUser[0].UserId}`);
         }
         break;
@@ -248,7 +248,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           [session.customer]
         );
         if (checkoutUser.length > 0) {
-          subscriptionCache.delete(checkoutUser[0].UserId);
+          clearUserCache(checkoutUser[0].UserId);
           console.log(`[TRIGGER: checkout.session.completed] Cache removido para o usuário ID: ${checkoutUser[0].UserId}`);
         }
         break;

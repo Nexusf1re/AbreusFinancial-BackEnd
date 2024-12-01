@@ -33,26 +33,25 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const trialStart = subscriptionCreated.trial_start;
         const trialEnd = subscriptionCreated.trial_end;
         const trialUsed = trialStart && trialEnd ? true : false; // Define como true se o período de teste foi iniciado
-
-        console.log(subscriptionCreated);
+      
         // Verificar se já existe um cliente com o StripeCustomerId
         const [existingCustomer] = await pool.query(
           'SELECT StripeCustomerId FROM subscriptions WHERE StripeCustomerId = ? LIMIT 1',
           [customerId] // Verifica apenas o StripeCustomerId
         );
-
+      
         if (existingCustomer.length === 0) {
           // Se não houver um cliente com esse StripeCustomerId, faz o INSERT
           const [user] = await pool.query(
             'SELECT id FROM users WHERE StripeCustomerId = ? LIMIT 1',
             [customerId]
           );
-
+      
           if (user.length > 0) {
             const userId = user[0].id;
             subscriptionCache.delete(userId);
             console.log(`[TRIGGER: customer.subscription.created] Cache removido para o usuário ID: ${userId}`);
-
+      
             // Cria a assinatura na tabela de subscriptions
             await pool.query(
               'INSERT INTO subscriptions (UserId, Email, StripeCustomerId, StripeSubscriptionId, SubscriptionPlan, SubscriptionStatus, TrialUsed, TrialStartDate, SubscriptionStartDate, SubscriptionEndDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -63,21 +62,46 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 subscriptionId,
                 planName,  // Plano de assinatura
                 status,    // Status da assinatura
-                trialUsed, // Define o campo TrialUsed
+                '1', // Define o campo TrialUsed
                 trialStart ? new Date(trialStart * 1000) : null,  // Adiciona TrialStartDate
                 startDate,  // SubscriptionStartDate
                 endDate     // SubscriptionEndDate
               ]
             );
-
+      
             console.log('Assinatura criada e dados de cliente atualizados. CUSTOMER.CREATED INSERT');
           } else {
             console.log('Usuário não encontrado para o StripeCustomerId.');
           }
         } else {
-          console.log('Cliente já existe, não será criada uma nova assinatura.');
+          // Atualiza o StripeCustomerId existente
+          const [user] = await pool.query(
+            'SELECT id FROM users WHERE StripeCustomerId = ? LIMIT 1',
+            [customerId]
+          );
+      
+          if (user.length > 0) {
+            const userId = user[0].id;
+            subscriptionCache.delete(userId);
+            console.log(`[TRIGGER: customer.subscription.created] Cache removido para o usuário ID: ${userId}`);
+      
+            // Atualiza a assinatura na tabela de subscriptions
+            await pool.query(
+              'UPDATE subscriptions SET StripeSubscriptionId = ?, SubscriptionStatus = ?, TrialUsed = 1, TrialStartDate = ?, SubscriptionStartDate = ? WHERE StripeCustomerId = ?',
+              [
+                subscriptionId,
+                status,    // Status da assinatura
+                trialStart ? new Date(trialStart * 1000) : null,  // Adiciona TrialStartDate
+                startDate,  // SubscriptionStartDate
+                customerId  // StripeCustomerId para atualizar
+              ]
+            );
+            console.log('Assinatura atualizada e dados de cliente atualizados. CUSTOMER.CREATED UPDATE');
+          } else {
+            console.log('Usuário não encontrado para o StripeCustomerId.');
+          }
         }
-
+      
         break;
 
 
@@ -153,7 +177,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         console.log(subscriptionUpdated);
         // Atualiza os dados da assinatura na tabela de subscriptions
         await pool.query(
-          'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
+          'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeCustomerId = ?',
           [
             subscriptionUpdated.status,
             new Date(subscriptionUpdated.current_period_end * 1000), // Data de término da assinatura
@@ -179,12 +203,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         console.log(subscriptionDeleted);
         // Atualiza os dados da assinatura na tabela de subscriptions para refletir a exclusão
         await pool.query(
-          'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
+          'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeCustomerId = ?',
           [
             'canceled', // Atualiza o status para 'canceled'
             new Date(subscriptionDeleted.current_period_end * 1000), // Data de término da assinatura
             new Date(subscriptionDeleted.current_period_start * 1000), // Último pagamento
-            subscriptionDeleted.id,
+            subscriptionDeleted.customer,
           ]
         );
         console.log('Assinatura cancelada no banco de dados. CUSTOMER.SUBSCRIPTION.DELETED');

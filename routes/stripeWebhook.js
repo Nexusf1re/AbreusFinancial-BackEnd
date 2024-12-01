@@ -34,6 +34,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const trialEnd = subscriptionCreated.trial_end;
         const trialUsed = trialStart && trialEnd ? true : false; // Define como true se o período de teste foi iniciado
 
+        console.log(subscriptionCreated);
         // Verificar se já existe um cliente com o StripeCustomerId
         const [existingCustomer] = await pool.query(
           'SELECT StripeCustomerId FROM subscriptions WHERE StripeCustomerId = ? LIMIT 1',
@@ -84,8 +85,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       case 'invoice.payment_succeeded':
         const invoicePaid = event.data.object;
         const paidSubscriptionId = invoicePaid.subscription;
-        const paidCustomerId = invoicePaid.customer;
-
+        console.log(invoicePaid);
         // Recupera a assinatura existente para verificar seu status
         const [paidSubscription] = await pool.query(
           'SELECT * FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
@@ -150,7 +150,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
       case 'customer.subscription.updated':
         const subscriptionUpdated = event.data.object;
-
+        console.log(subscriptionUpdated);
         // Atualiza os dados da assinatura na tabela de subscriptions
         await pool.query(
           'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
@@ -162,7 +162,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           ]
         );
         console.log('Assinatura atualizada no banco de dados. CUSTOMER.SUBSCRIPTION.UPDATED');
-
+      
         // Busca o UserId para invalidar o cache
         const [updatedUser] = await pool.query(
           'SELECT UserId FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
@@ -173,6 +173,32 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           console.log(`[TRIGGER: customer.subscription.updated] Cache removido para o usuário ID: ${updatedUser[0].UserId}`);
         }
         break;
+      
+      case 'customer.subscription.deleted':
+        const subscriptionDeleted = event.data.object;
+        console.log(subscriptionDeleted);
+        // Atualiza os dados da assinatura na tabela de subscriptions para refletir a exclusão
+        await pool.query(
+          'UPDATE subscriptions SET SubscriptionStatus = ?, SubscriptionEndDate = ?, LastPaymentDate = ? WHERE StripeSubscriptionId = ?',
+          [
+            'canceled', // Atualiza o status para 'canceled'
+            new Date(subscriptionDeleted.current_period_end * 1000), // Data de término da assinatura
+            new Date(subscriptionDeleted.current_period_start * 1000), // Último pagamento
+            subscriptionDeleted.id,
+          ]
+        );
+        console.log('Assinatura cancelada no banco de dados. CUSTOMER.SUBSCRIPTION.DELETED');
+      
+        // Busca o UserId para invalidar o cache
+        const [deletedUser] = await pool.query(
+          'SELECT UserId FROM subscriptions WHERE StripeSubscriptionId = ? LIMIT 1',
+          [subscriptionDeleted.id]
+        );
+        if (deletedUser.length > 0) {
+          subscriptionCache.delete(deletedUser[0].UserId);
+          console.log(`[TRIGGER: customer.subscription.deleted] Cache removido para o usuário ID: ${deletedUser[0].UserId}`);
+        }
+        break;
 
       case 'checkout.session.completed':
         const session = event.data.object;
@@ -180,6 +206,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const sessionCustomerId = session.customer;
         const sessionPlanName = session.metadata.plan;
 
+        console.log(session);
         // Atualiza a assinatura com os dados do checkout
         await pool.query(
           'UPDATE subscriptions SET StripeSubscriptionId = ?, SubscriptionPlan = ? WHERE StripeCustomerId = ?',
